@@ -1,0 +1,20 @@
+/* src/app/dashboard/polls/[id]/results/page.module.css */
+
+.container {
+  padding: 2rem;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.chartArea {
+  margin-bottom: 2rem;
+}
+
+.toggleGroup button {
+  margin-right: 1rem;
+}
+
+.info, .error {
+  text-align: center;
+  padding: 2rem;
+}

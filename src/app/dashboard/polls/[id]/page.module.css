@@ -1,0 +1,100 @@
+/* src/app/dashboard/polls/[id]/page.module.css */
+
+.container {
+  padding: 2rem;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title {
+  font-size: 1.75rem;
+  margin: 0;
+}
+
+.actions button {
+  padding: 0.5rem 1rem;
+  background: #0070f3;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.description {
+  margin: 1rem 0;
+  color: #555;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.select {
+  padding: 0.4rem;
+  font-size: 1rem;
+}
+
+.updateStatusBtn {
+  padding: 0.4rem 0.8rem;
+  background: #28a745;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.meta {
+  margin-bottom: 1.5rem;
+}
+
+.optionList {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 2rem;
+}
+
+.optionItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.optionImg {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.qrContainer {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+.accessCode {
+  margin-top: 0.5rem;
+  font-size: 1rem;
+  color: #333;
+}
+
+.info {
+  text-align: center;
+  padding: 2rem;
+  color: #555;
+}
+
+.error {
+  text-align: center;
+  padding: 2rem;
+  color: red;
+}

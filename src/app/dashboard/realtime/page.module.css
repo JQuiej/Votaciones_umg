@@ -1,0 +1,65 @@
+.container {
+  padding: 2rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+.title {
+  text-align: center;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+}
+.toggleGroup {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.toggleButton,
+.toggleActive {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.toggleButton {
+  background: #eee;
+  color: #333;
+}
+.toggleActive {
+  background: #0070f3;
+  color: white;
+}
+.chartContainer {
+  height: 350px;
+  margin-bottom: 2rem;
+}
+.optionList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.optionItem {
+  display: flex;
+  align-items: center;
+}
+.optionImg {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-right: 0.75rem;
+}
+.optionText {
+  font-size: 1rem;
+  color: #333;
+}
+.info {
+  text-align: center;
+  color: #555;
+  padding: 2rem;
+}
+.error {
+  text-align: center;
+  color: red;
+  padding: 2rem;
+}
