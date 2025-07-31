@@ -1,4 +1,3 @@
-// src/app/vote/[codigo_acceso]/page.tsx
 'use client'
 
 import React, { useState, useEffect } from 'react'
@@ -38,6 +37,7 @@ export default function VotePage() {
   const [error, setError] = useState<string | null>(null)
   const [fingerprint, setFingerprint] = useState<string | null>(null)
   const [hasVoted, setHasVoted] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false); // Nuevo estado para controlar el envío
 
   // respuestas
   const [singleResp, setSingleResp] = useState<Record<number, number>>({})
@@ -49,9 +49,11 @@ export default function VotePage() {
   const handleSingleChange = (qId: number, oId: number) =>
     setSingleResp(prev => ({ ...prev, [qId]: oId }))
   const handleMultiChange = (qId: number, oId: number) => {
-    const next = new Set(multiResp[qId])
-    next.has(oId) ? next.delete(oId) : next.add(oId)
-    setMultiResp(prev => ({ ...prev, [qId]: next }))
+    setMultiResp(prev => {
+      const newSet = new Set(prev[qId])
+      newSet.has(oId) ? newSet.delete(oId) : newSet.add(oId)
+      return { ...prev, [qId]: newSet }
+    })
   }
   const handleScoreChange = (qId: number, val: number) =>
     setScoreResp(prev => ({ ...prev, [qId]: val }))
@@ -73,6 +75,7 @@ export default function VotePage() {
   useEffect(() => {
     ;(async () => {
       setLoading(true)
+      setError(null); // Limpiar errores previos
 
       // 2.1) Encuesta
       const { data: p, error: pe } = await supabase
@@ -81,10 +84,19 @@ export default function VotePage() {
         .eq('codigo_acceso', codigo_acceso!)
         .single()
       if (pe || !p) {
-        setError('Enlace inválido')
+        setError('Enlace de encuesta inválido o no encontrado.')
         setLoading(false)
         return
       }
+
+      // Verificar el estado de la encuesta
+      if (p.estado !== 'activa') {
+        setPoll(p); // Cargar el poll para mostrar su título
+        setError(`Esta encuesta no está disponible para votar en este momento. Estado: ${p.estado.toUpperCase()}`);
+        setLoading(false);
+        return;
+      }
+
       setPoll(p)
 
       // 2.2) Preguntas y opciones
@@ -115,7 +127,7 @@ export default function VotePage() {
       setPreguntas(cargadas)
 
       // 2.3) Inicializar respuestas
-      const sInit: Record<number, number>       = {}
+      const sInit: Record<number, number>      = {}
       const mInit: Record<number, Set<number>> = {}
       const scInit: Record<number, number>     = {}
       const rInit: Record<number, Record<number,number>> = {}
@@ -147,8 +159,9 @@ export default function VotePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!poll || !fingerprint) return
+    if (!poll || !fingerprint || isSubmitting) return
 
+    setIsSubmitting(true); // Bloquear el botón de envío
     try {
       // 1) inserto el voto master
       const { data: voteRec, error: voteErr } = await supabase
@@ -156,7 +169,13 @@ export default function VotePage() {
         .insert({ id_encuesta: poll.id_encuesta, huella_dispositivo: fingerprint })
         .select('id_voto')
         .single()
-      if (voteErr || !voteRec) throw voteErr
+      if (voteErr || !voteRec) {
+        if (voteErr.code === '23505') { // Código de error para unique_violation (ya votó)
+          setHasVoted(true);
+          throw new Error('Ya has votado en esta encuesta.');
+        }
+        throw voteErr;
+      }
       const idVoto = voteRec.id_voto
 
       // 2) construyo el array de respuestas
@@ -177,11 +196,21 @@ export default function VotePage() {
         }
         else if (poll.id_tipo_votacion === 3) {
           const val = scoreResp[qid]
-          if (val <= 0) throw new Error(`Califica "${q.texto_pregunta}"`)
+          // Asumiendo que maxScore se cargaría con la pregunta, si no, usar un valor por defecto (ej. 10)
+          // const maxScore = q.maxScore || 10; // Si maxScore viene en la interfaz Pregunta
+          if (val <= 0 || val > 10) throw new Error(`Califica "${q.texto_pregunta}" con un valor entre 1 y 10.`)
           respuestas.push({ id_voto: idVoto, id_pregunta: qid, valor_puntuacion: val })
         }
         else if (poll.id_tipo_votacion === 4) {
           const ranks = rankResp[qid]
+          const assignedRanks = Object.values(ranks).filter(r => r > 0);
+          if (new Set(assignedRanks).size !== assignedRanks.length) {
+            throw new Error(`Los rankings en "${q.texto_pregunta}" deben ser únicos y no pueden repetirse.`);
+          }
+          if (assignedRanks.length !== q.opciones.length) {
+            throw new Error(`Asigna un ranking a todas las opciones en "${q.texto_pregunta}".`);
+          }
+
           for (const [oid, orden] of Object.entries(ranks)) {
             if (orden > 0) {
               respuestas.push({
@@ -204,13 +233,28 @@ export default function VotePage() {
       setHasVoted(true)
       alert('¡Gracias por votar!')
     } catch (err: any) {
-      alert(err.message)
+      setError(err.message); // Mostrar el error en la UI
+      // alert(err.message) // Mantener alerta para errores críticos o de validación
+    } finally {
+      setIsSubmitting(false); // Liberar el botón de envío
     }
   }
 
   if (loading) return <p className={styles.info}>🔄 Cargando…</p>
-  if (error)   return <p className={styles.error}>{error}</p>
-  if (!poll)  return null
+  if (error) {
+    // Si hay un error, pero el poll se cargó (ej. por estado no activo), mostramos el título
+    return (
+      <div className={styles.container}>
+        {poll && <h1 className={styles.title}>{poll.titulo}</h1>}
+        <p className={styles.error}>{error}</p>
+        {/* Opcional: botón para regresar si hay un error no fatal */}
+        <button onClick={() => router.back()} className={styles.backButton}>
+          ← Regresar
+        </button>
+      </div>
+    );
+  }
+  if (!poll) return null // No renderizar nada si el poll no se ha cargado y no hay error.
 
   // si ya votó
   if (hasVoted) {
@@ -218,6 +262,9 @@ export default function VotePage() {
       <div className={styles.container}>
         <h1 className={styles.title}>{poll.titulo}</h1>
         <p className={styles.info}>Ya has votado esta encuesta.</p>
+        <button onClick={() => router.back()} className={styles.backButton}>
+          ← Regresar
+        </button>
       </div>
     )
   }
@@ -238,37 +285,49 @@ export default function VotePage() {
             />
           )}
 
-          {poll.id_tipo_votacion === 1 && q.opciones.map(o => (
-            <label key={o.id_opcion} className={styles.optionItem}>
-              <input
-                type="radio"
-                name={`q_${q.id_pregunta}`}
-                checked={singleResp[q.id_pregunta] === o.id_opcion}
-                onChange={() => handleSingleChange(q.id_pregunta, o.id_opcion)}
-              />
-              <span className={styles.optionLabel}>{o.texto_opcion}</span>
-            </label>
-          ))}
+          {poll.id_tipo_votacion === 1 && ( // Opción única
+            <div className={styles.optionList}>
+              {q.opciones.map(o => (
+                <label key={o.id_opcion} className={styles.optionItem}>
+                  <input
+                    type="radio"
+                    name={`q_${q.id_pregunta}`}
+                    checked={singleResp[q.id_pregunta] === o.id_opcion}
+                    onChange={() => handleSingleChange(q.id_pregunta, o.id_opcion)}
+                    className={styles.radioInput}
+                  />
+                  {o.url_imagen && <img src={o.url_imagen} alt={o.texto_opcion} className={styles.optionImg} />}
+                  <span className={styles.optionLabel}>{o.texto_opcion}</span>
+                </label>
+              ))}
+            </div>
+          )}
 
-          {poll.id_tipo_votacion === 2 && q.opciones.map(o => (
-            <label key={o.id_opcion} className={styles.optionItem}>
-              <input
-                type="checkbox"
-                checked={multiResp[q.id_pregunta].has(o.id_opcion)}
-                onChange={() => handleMultiChange(q.id_pregunta, o.id_opcion)}
-              />
-              <span className={styles.optionLabel}>{o.texto_opcion}</span>
-            </label>
-          ))}
+          {poll.id_tipo_votacion === 2 && ( // Opción múltiple
+            <div className={styles.optionList}>
+              {q.opciones.map(o => (
+                <label key={o.id_opcion} className={styles.optionItem}>
+                  <input
+                    type="checkbox"
+                    checked={multiResp[q.id_pregunta]?.has(o.id_opcion)}
+                    onChange={() => handleMultiChange(q.id_pregunta, o.id_opcion)}
+                    className={styles.checkboxInput}
+                  />
+                  {o.url_imagen && <img src={o.url_imagen} alt={o.texto_opcion} className={styles.optionImg} />}
+                  <span className={styles.optionLabel}>{o.texto_opcion}</span>
+                </label>
+              ))}
+            </div>
+          )}
 
-          {poll.id_tipo_votacion === 3 && (
-            <div className={styles.optionItem}>
-              <label className={styles.optionLabel}>
+          {poll.id_tipo_votacion === 3 && ( // Puntuación
+            <div className={styles.scoreSection}>
+              <label className={styles.scoreLabel}>
                 Tu puntuación:
                 <input
                   type="number"
                   min={1}
-                  max={10}
+                  max={10} // Asumiendo que la puntuación máxima es 10. Si es dinámica, cárgala desde la DB.
                   value={scoreResp[q.id_pregunta] || ''}
                   onChange={e =>
                     handleScoreChange(
@@ -279,33 +338,51 @@ export default function VotePage() {
                   className={styles.inputNumber}
                 />
               </label>
+              {q.opciones.length > 0 && ( // Si hay opciones para puntuar (ej. las etiquetas de lo que se puntúa)
+                <div className={styles.scoreOptionsList}>
+                    {q.opciones.map(o => (
+                        <div key={o.id_opcion} className={styles.scoreOptionItem}>
+                            {o.url_imagen && (
+                                <img src={o.url_imagen} alt={o.texto_opcion} className={styles.optionImg} />
+                            )}
+                            <span className={styles.scoreOptionLabel}>{o.texto_opcion}</span>
+                        </div>
+                    ))}
+                </div>
+              )}
             </div>
           )}
 
-          {poll.id_tipo_votacion === 4 && q.opciones.map(o => (
-            <label key={o.id_opcion} className={styles.optionItem}>
-              <span className={styles.optionLabel}>{o.texto_opcion}</span>
-              <input
-                type="number"
-                min={1}
-                max={q.opciones.length}
-                value={rankResp[q.id_pregunta][o.id_opcion] || ''}
-                onChange={e =>
-                  handleRankChange(
-                    q.id_pregunta,
-                    o.id_opcion,
-                    e.target.value === '' ? 0 : parseInt(e.target.value, 10)
-                  )
-                }
-                className={styles.inputNumber}
-              />
-            </label>
-          ))}
+          {poll.id_tipo_votacion === 4 && ( // Ranking
+            <div className={styles.rankingSection}>
+              <p className={styles.rankingInstructions}>Asigna un número del 1 al {q.opciones.length} (1 para el primero, etc.)</p>
+              {q.opciones.map(o => (
+                <div key={o.id_opcion} className={styles.rankingItem}>
+                  {o.url_imagen && <img src={o.url_imagen} alt={o.texto_opcion} className={styles.optionImg} />}
+                  <span className={styles.rankingOptionLabel}>{o.texto_opcion}</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={q.opciones.length}
+                    value={rankResp[q.id_pregunta]?.[o.id_opcion] || ''}
+                    onChange={e =>
+                      handleRankChange(
+                        q.id_pregunta,
+                        o.id_opcion,
+                        e.target.value === '' ? 0 : parseInt(e.target.value, 10)
+                      )
+                    }
+                    className={styles.inputNumber}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </fieldset>
       ))}
 
-      <button type="submit" className={styles.submitBtn}>
-        Votar
+      <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>
+        {isSubmitting ? 'Enviando voto...' : 'Votar'}
       </button>
     </form>
   )
