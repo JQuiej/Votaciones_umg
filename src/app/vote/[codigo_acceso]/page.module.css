@@ -1,0 +1,215 @@
+/* este archivo es un CSS Module, por tanto SÓLO estas clases se verán aquí */
+
+.pageWrapper {
+  /* opcional: si tu layout fija un header, separa el contenido */
+  margin-top: 4rem;
+}
+
+.container {
+  position: relative;
+  z-index: 1;               /* siempre por debajo del Navbar (que está en 1000) */
+  padding: 2rem;
+  max-width: 640px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.title {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.description {
+  color: #555;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.optionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.optionItem {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: #f9f9f9;
+  border-radius: 6px;
+}
+
+.optionImage {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.optionLabel {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 0.75rem;
+}
+
+.optionText {
+  flex: 1;
+  font-size: 1rem;
+  color: #333;
+}
+
+.inputRadio,
+.inputCheckbox {
+  width: 1.1em;
+  height: 1.1em;
+}
+
+.inputNumber {
+  width: 60px;
+  padding: 0.25rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.submitBtn {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  margin-top: 2rem;
+  background: #0070f3;
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.submitBtn:hover {
+  background: #005bb5;
+}
+
+.info {
+  text-align: center;
+  padding: 2rem;
+  color: #555;
+}
+
+.error {
+  text-align: center;
+  padding: 2rem;
+  color: #c00;
+}
+
+
+/* src/app/vote/[codigo_acceso]/page.module.css */
+
+.container {
+  padding: 2rem;
+  max-width: 720px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.title {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.description {
+  text-align: center;
+  color: #555;
+  margin-bottom: 2rem;
+}
+
+.questionBlock {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+}
+
+.questionBlock legend {
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.questionImg {
+  display: block;
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin: 0.75rem 0;
+}
+
+.optionItem {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.5rem 0;
+}
+
+.optionImg {
+  flex-shrink: 0;
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+.optionLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.inputNumber {
+  width: 60px;
+  padding: 0.25rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.submitBtn {
+  display: block;
+  width: 100%;
+  padding: 1rem;
+  margin-top: 2rem;
+  background: #0070f3;
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.submitBtn:hover {
+  background: #005bb5;
+}
+
+.info {
+  text-align: center;
+  padding: 2rem;
+  color: #555;
+}
+
+.error {
+  text-align: center;
+  padding: 2rem;
+  color: #c00;
+}

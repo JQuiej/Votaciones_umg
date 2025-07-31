@@ -12,3 +12,120 @@ body {
 *, *::before, *::after {
   box-sizing: border-box;
 }
+
+.container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); /* Gradiente de fondo atractivo */
+  color: white;
+  font-family: 'Inter', sans-serif;
+  text-align: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.content {
+  background-color: rgba(255, 255, 255, 0.15); /* Fondo semitransparente para el contenido */
+  padding: 50px;
+  border-radius: 15px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  max-width: 700px;
+  backdrop-filter: blur(5px); /* Efecto de desenfoque en el fondo */
+  -webkit-backdrop-filter: blur(5px); /* Para compatibilidad con Safari */
+}
+
+.title {
+  font-size: 3.5em;
+  margin-bottom: 20px;
+  font-weight: 700;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.description {
+  font-size: 1.2em;
+  line-height: 1.6;
+  margin-bottom: 40px;
+  opacity: 0.9;
+}
+
+.buttonGroup {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap; /* Para que los botones se envuelvan en pantallas pequeñas */
+}
+
+.buttonPrimary,
+.buttonSecondary {
+  padding: 15px 30px;
+  border-radius: 8px;
+  font-size: 1.1em;
+  font-weight: bold;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  min-width: 180px; /* Ancho mínimo para los botones */
+  display: inline-block; /* Para que padding y min-width funcionen bien */
+}
+
+.buttonPrimary {
+  background-color: #ffffff;
+  color: #2575fc;
+  border: 2px solid #ffffff;
+}
+
+.buttonPrimary:hover {
+  background-color: #e0e0e0;
+  color: #1a5bbd;
+  transform: translateY(-3px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+}
+
+.buttonSecondary {
+  background-color: transparent;
+  color: #ffffff;
+  border: 2px solid #ffffff;
+}
+
+.buttonSecondary:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .title {
+    font-size: 2.5em;
+  }
+
+  .description {
+    font-size: 1em;
+  }
+
+  .content {
+    padding: 30px;
+  }
+
+  .buttonGroup {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .buttonPrimary,
+  .buttonSecondary {
+    width: 80%; /* Ocupa más ancho en móvil */
+    max-width: 300px;
+  }
+}
+
+@media (max-width: 480px) {
+  .title {
+    font-size: 2em;
+  }
+
+  .content {
+    padding: 20px;
+  }
+}

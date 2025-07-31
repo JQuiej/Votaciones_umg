@@ -1,18 +1,30 @@
-// src/app/components/Navbar.tsx
 'use client'
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation' // Importar useRouter
+import { supabase } from '../../lib/supabaseClient' // Importar supabase
 import styles from './Navbar.module.css'
 
 export default function Navbar() {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
+  const router = useRouter() // Inicializar useRouter
 
-  // Ocultar el menú en las páginas de autenticación
-  if (pathname.startsWith('/auth/login') || pathname.startsWith('/auth/register') || pathname.startsWith('/vote')) {
+  // Ocultar el menú en las páginas de autenticación y votación
+  if (pathname.startsWith('/auth/login') || pathname.startsWith('/auth/register') || pathname.startsWith('/vote') || pathname.startsWith('/auth/pass')) {
     return null
+  }
+
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      console.error('Error al cerrar sesión:', error.message)
+      // Opcional: mostrar un mensaje de error al usuario
+      alert('Error al cerrar sesión. Inténtalo de nuevo.')
+    } else {
+      router.push('/auth/login') // Redirigir a la página de login después de cerrar sesión
+    }
   }
 
   return (
@@ -30,9 +42,16 @@ export default function Navbar() {
 
       {/* Sidebar deslizable */}
       <nav className={`${styles.nav} ${open ? styles.open : ''}`}>
-        <Link href="/dashboard/crear_encuesta">Crear encuesta</Link>
-        <Link href="/dashboard/polls">Mis encuestas</Link>
-        <Link href="/dashboard/realtime">Encuestas en proceso</Link>
+        <Link href="/dashboard/crear_encuesta" onClick={() => setOpen(false)}>Crear encuesta</Link>
+        <Link href="/dashboard/polls" onClick={() => setOpen(false)}>Mis encuestas</Link>
+        <Link href="/dashboard/realtime" onClick={() => setOpen(false)}>Encuestas en proceso</Link>
+        {/* Botón de cerrar sesión */}
+        <button
+          className={styles.logoutButton}
+          onClick={handleSignOut}
+        >
+          Cerrar Sesión
+        </button>
       </nav>
 
       {/* Backdrop sólo cuando esté abierto */}

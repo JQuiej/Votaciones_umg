@@ -1,65 +1,146 @@
 .container {
-  padding: 2rem;
-  max-width: 800px;
-  margin: 0 auto;
+  max-width: 900px;
+  margin: 20px auto;
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  font-family: 'Inter', sans-serif;
+  color: #333;
 }
-.title {
+
+.mainTitle {
   text-align: center;
-  margin-bottom: 1rem;
-  font-size: 1.5rem;
+  color: #2c3e50;
+  margin-bottom: 10px;
+  font-size: 2.2em;
 }
+
+.subTitle {
+  text-align: center;
+  color: #555;
+  margin-bottom: 25px;
+  font-size: 1.5em;
+}
+
+.info {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+}
+
+.error {
+  text-align: center;
+  color: #d9534f;
+  font-weight: bold;
+}
+
 .toggleGroup {
   display: flex;
   justify-content: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  margin-bottom: 20px;
 }
-.toggleButton,
-.toggleActive {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
+
+.toggleButton, .toggleActive {
+  padding: 10px 20px;
+  border: 1px solid #ccc;
+  background-color: #fff;
   cursor: pointer;
+  font-size: 1em;
+  transition: all 0.3s ease;
 }
-.toggleButton {
-  background: #eee;
-  color: #333;
+
+.toggleButton:first-child {
+  border-top-left-radius: 5px;
+  border-bottom-left-radius: 5px;
 }
+
+.toggleButton:last-child {
+  border-top-right-radius: 5px;
+  border-bottom-right-radius: 5px;
+}
+
+.toggleButton:hover {
+  background-color: #f0f0f0;
+}
+
 .toggleActive {
-  background: #0070f3;
+  background-color: #007bff;
   color: white;
+  border-color: #007bff;
 }
+
+.chartBlock {
+  margin-bottom: 40px;
+  padding: 15px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  background-color: #fff;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.05);
+}
+
+.questionTitle {
+  text-align: center;
+  color: #34495e;
+  margin-bottom: 15px;
+  font-size: 1.6em;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* Estilo para la imagen de la pregunta */
+.questionImg {
+  max-width: 30%; /* Reducido de 80% a 30% */
+  height: auto;
+  display: block;
+  margin: 15px auto 20px auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.rankingInfo {
+    text-align: center;
+    color: #777;
+    font-size: 0.9em;
+    margin-bottom: 10px;
+}
+
 .chartContainer {
-  height: 350px;
-  margin-bottom: 2rem;
+  width: 100%;
+  /* Height is now controlled by ResponsiveContainer in JS */
+  margin-bottom: 20px;
 }
+
 .optionList {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 20px;
 }
+
 .optionItem {
   display: flex;
   align-items: center;
-}
-.optionImg {
-  width: 40px;
-  height: 40px;
-  object-fit: cover;
-  border-radius: 4px;
-  margin-right: 0.75rem;
-}
-.optionText {
-  font-size: 1rem;
+  padding: 10px 15px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background-color: #f0f0f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  font-size: 0.95em;
   color: #333;
 }
-.info {
-  text-align: center;
-  color: #555;
-  padding: 2rem;
+
+/* Estilo para la imagen de la opción */
+.optionImg {
+  width: 40px; /* Reducido de 50px a 40px */
+  height: 40px; /* Reducido de 50px a 40px */
+  object-fit: cover;
+  border-radius: 4px;
+  margin-right: 10px;
+  flex-shrink: 0;
 }
-.error {
-  text-align: center;
-  color: red;
-  padding: 2rem;
+
+.optionText {
+  font-weight: bold;
 }
