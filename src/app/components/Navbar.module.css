@@ -1,3 +1,15 @@
+/* --- 1. Definición de Colores del Tema --- */
+:root {
+  --nav-bg: #1f2937;           /* Fondo de la sidebar */
+  --nav-text: #d1d5db;         /* Color de texto normal */
+  --nav-text-hover: #ffffff;   /* Texto al pasar el ratón */
+  --nav-hover-bg: hsl(217, 19%, 27%);     /* Fondo al pasar el ratón */
+  --nav-active-bg: #6c3ff1;    /* Fondo del enlace activo */
+  --icon-closed: #d1d5db;      /* Color del icono hamburguesa */
+  --icon-open: #ffffff;        /* Color del icono 'X' */
+}
+
+/* --- Botón Hamburguesa --- */
 .hamburger {
   position: fixed;
   top: 1rem;
@@ -7,7 +19,7 @@
   border: none;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px; /* Un poco más de espacio */
   cursor: pointer;
 }
 
@@ -15,82 +27,100 @@
   width: 25px;
   height: 3px;
   background: var(--icon-closed);
-  transition: background 0.3s;
+  border-radius: 2px;
+  transition: all 0.3s ease-in-out;
 }
 
-/* Cuando el menú está abierto, las barras se vuelven blancas */
-.hamburger.open .bar {
+/* Animación de la hamburguesa a una 'X' */
+.hamburger.open .bar:nth-child(1) {
   background: var(--icon-open);
+  transform: translateY(8px) rotate(45deg);
+}
+.hamburger.open .bar:nth-child(2) {
+  opacity: 0;
+}
+.hamburger.open .bar:nth-child(3) {
+  background: var(--icon-open);
+  transform: translateY(-8px) rotate(-45deg);
 }
 
+/* --- Barra de Navegación --- */
 .nav {
   position: fixed;
   top: 0;
   left: 0;
   bottom: 0;
-  width: 220px;
+  width: 250px;
   transform: translateX(-100%);
-  transition: transform 0.3s ease;
+  transition: transform 0.3s ease-in-out;
   background: var(--nav-bg);
-  padding-top: 4rem; /* espacio para el botón */
-  /* --- CAMBIO AQUÍ --- */
-  padding-bottom: 40px; /* Aumenta este valor para mover el botón más abajo */
-  /* --- FIN DEL CAMBIO --- */
+  padding: 1.5rem 1rem; /* Espaciado interno general */
+  padding-top: 5rem; /* Más espacio arriba para no chocar con la 'X' */
   display: flex;
   flex-direction: column;
+  gap: 0.5rem; /* Espacio uniforme entre enlaces */
   z-index: 1000;
 }
 
 .nav.open {
   transform: translateX(0);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); /* Sombra más pronunciada */
 }
 
+/* --- 2. Estilos de Enlaces Mejorados --- */
 .nav a,
 .logoutButton {
-  color: var(--nav-color);
-  padding: 1rem;
+  color: var(--nav-text);
+  padding: 0.75rem 1rem;
   text-decoration: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   display: block;
   width: 100%;
   text-align: left;
-  box-sizing: border-box;
   background: none;
-  border-top: none;
-  border-left: none;
-  border-right: none;
-  border-radius: 0;
+  border: none; /* Quitamos los bordes originales */
+  border-radius: 0.5rem; /* Bordes redondeados consistentes */
   cursor: pointer;
   font-size: 1em;
-  margin: 0;
+  font-weight: 500;
+  margin: 0; /* Quitamos el margen para usar 'gap' */
+  transition: background-color 0.2s, color 0.2s;
 }
-
 
 .nav a:hover,
 .logoutButton:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--nav-hover-bg);
+  color: var(--nav-text-hover);
 }
 
+/* --- 3. Estilo para Enlace Activo (¡NUEVO!) --- */
+.nav a.active {
+  background: var(--nav-active-bg);
+  color: var(--nav-text-hover);
+  font-weight: 600;
+}
+
+/* --- Backdrop con Efecto Blur --- */
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(3px); /* Efecto de desenfoque */
   z-index: 999;
 }
 
+/* --- Botón de Salir --- */
 .logoutButton {
-  background-color: rgba(220, 53, 69, 0.1);
-  color: var(--nav-color);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-  margin-top: auto;
+  margin-top: auto; /* Empuja el botón hacia abajo */
 }
 
+/* Mantenemos el hover rojo que tenías */
 .logoutButton:hover {
   background-color: rgba(220, 53, 69, 0.2);
 }
 
+/* Quitamos la regla de margen que ya no es necesaria gracias a 'gap' */
 .nav a + .nav a,
 .nav a + .logoutButton,
 .logoutButton + .nav a {
-  margin-top: 1rem;
+  margin-top: 0; 
 }

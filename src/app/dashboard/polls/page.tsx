@@ -19,7 +19,7 @@ export default function MyPollsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    ;(async () => {
+    ; (async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession()
@@ -63,7 +63,13 @@ export default function MyPollsPage() {
             >
               <span className={styles.title}>{p.titulo}</span>
               <span className={styles.meta}>
-                {new Date(p.fecha_creacion).toLocaleDateString()} — {p.estado}
+                {/* Span solo para la fecha */}
+                <span>{new Date(p.fecha_creacion).toLocaleDateString()}</span>
+
+                {/* Span para el badge de estado, con clases dinámicas */}
+                <span className={`${styles.status} ${styles[p.estado.toLowerCase()]}`}>
+                  {p.estado}
+                </span>
               </span>
             </Link>
           </li>

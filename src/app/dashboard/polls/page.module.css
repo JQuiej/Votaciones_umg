@@ -1,66 +1,138 @@
+/* page.module.css - Estilo Invertido (Tarjetas Claras) */
+/* globals.css */
+body {
+  background-color: #111827; /* El fondo oscuro principal */
+}
+/* Contenedor principal del dashboard */
 .container {
-  padding: 2rem;
   max-width: 800px;
-  margin: 0 auto;
+  margin: 2rem auto;
+  padding: 1rem;
+  font-family: sans-serif;
 }
 
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
+/* Título principal con el gradiente de la página de inicio */
 .heading {
-  font-size: 1.75rem;
+  font-size: 2.8rem; /* 40px */
+  font-weight: 800;
+  margin-bottom: 2rem;
+  letter-spacing: -0.025em;
+  text-align: center; /* Centramos el título */
+  background: linear-gradient(to right, #6ee7b7, #818cf8); /* Gradiente atractivo */
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
-.createButton,
-.button {
-  background: #0070f3;
-  color: #fff;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  text-decoration: none;
-}
-
+/* Lista de encuestas */
 .list {
   list-style: none;
   padding: 0;
-  margin: 0 0 1rem;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  
 }
 
+/* Elemento de encuesta individual */
 .item {
-  margin-bottom: 0.75rem;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 0.5rem;
+  background-color: #ffffff;
+  border-radius: 0.5rem;
+  border: 5px solid #e5e7eb;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  position: relative; /* Necesario para la barra lateral */
+  overflow: hidden; /* Oculta la barra cuando está escalada a 0 */
 }
 
+/* Esta es la barra lateral oculta */
+.item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 5px; /* Ancho de la barra */
+  height: 100%;
+  background: linear-gradient(to bottom, #a78bfa, #818cf8);
+  transform: scaleY(0); /* La ocultamos escalándola a 0 */
+  transform-origin: bottom; /* La animación crece desde abajo */
+  transition: transform 0.3s ease-in-out;
+}
+
+/* Efecto hover que muestra la barra y eleva la tarjeta */
+.item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(8, 182, 109, 0.08);
+  color: #6ee7b7; /* Cambiamos el color del texto al hacer hover */
+  
+}
+
+.item:hover::before {
+  transform: scaleY(1); /* Hacemos crecer la barra a su tamaño completo */
+    
+}
+/* Enlace dentro de la tarjeta */
 .link {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  cursor: pointer;
+  padding: 1.25rem 1.5rem;
+  text-decoration: none;
 }
 
+/* Título de la encuesta (AHORA OSCURO) */
 .title {
-  font-weight: 500;
+  font-size: 1.125rem; /* 18px */
+  font-weight: 600;
+  color: #1f2937; /* Color de texto oscuro */
 }
 
+/* Metadatos de la encuesta (AHORA OSCURO) */
+/* Modifica la clase .meta para alinear bien los elementos */
 .meta {
-  font-size: 0.875rem;
-  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem; /* Espacio entre la fecha y el badge */
+  font-size: 0.875rem; /* 14px */
+  color: #6b7280; /* Gris oscuro para info secundaria */
+  white-space: nowrap;
+  margin-left: 1rem;
 }
 
-.info,
-.error {
+/* Estilo base para todos los badges de estado */
+.status {
+  padding: 0.25rem 0.6rem; /* Relleno para crear el badge */
+  border-radius: 9999px; /* Para que sea una píldora perfecta */
+  font-weight: 600;
+  font-size: 0.75rem; /* 12px */
+  text-transform: capitalize; /* Pone la primera letra en mayúscula */
+}
+
+/* Color para el estado "activa" */
+.activa {
+  background-color: rgba(16, 185, 129, 0.15); /* Fondo verde semitransparente */
+  color: #065f46; /* Texto verde oscuro */
+}
+
+/* Color para el estado "pendiente" */
+.pendiente {
+  background-color: rgba(245, 158, 11, 0.15); /* Fondo ámbar semitransparente */
+  color: #92400e; /* Texto ámbar oscuro */
+}
+
+/* (Opcional) Puedes añadir más estados, por ejemplo: */
+.finalizada {
+  background-color: rgba(107, 114, 128, 0.15); /* Fondo gris */
+  color: #374151; /* Texto gris oscuro */
+}
+
+/* Mensajes de carga o de lista vacía (AHORA CLARO) */
+.info {
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  color: #4b5563; /* Texto gris oscuro */
   text-align: center;
-  padding: 2rem;
-  color: #555;
-}
-
-.error {
-  color: red;
+  font-size: 1.1rem;
+  padding: 4rem 0;
+  border-radius: 0.5rem;
 }

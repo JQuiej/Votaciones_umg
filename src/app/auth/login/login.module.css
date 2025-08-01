@@ -1,105 +1,130 @@
+/* login.module.css - Estilo Opción A */
+
+/* Contenedor principal: Mismo fondo oscuro y centrado que la home */
 .container {
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   min-height: 100vh;
-  background-color: #f0f2f5; /* Fondo suave */
-  font-family: 'Inter', sans-serif;
+  background-color: #111827;
+  font-family: sans-serif;
+  padding: 1rem;
 }
 
+/* Tarjeta para el formulario */
 .card {
-  background-color: #ffffff;
-  padding: 40px;
-  border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   width: 100%;
   max-width: 400px;
+  padding: 2.5rem; /* 40px */
+  background-color: #1f2937; /* Un gris un poco más claro que el fondo */
+  border-radius: 0.75rem; /* 12px */
+  border: 1px solid #374151;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* Título de la tarjeta */
+.title {
+  text-align: center;
+  font-size: 2rem; /* 32px */
+  font-weight: 700;
+  color: #f9fafb;
+  margin-bottom: 2rem; /* 32px */
+}
+
+/* Estilo para los campos de entrada de texto */
+.input {
+  width: 100%;
+  padding: 0.75rem 1rem; /* 12px 16px */
+  background-color: #374151;
+  border: 1px solid #4b5563;
+  border-radius: 0.5rem; /* 8px */
+  color: #f9fafb;
+  font-size: 1rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input::placeholder {
+  color: #9ca3af;
+}
+
+/* Efecto al seleccionar el input */
+.input:focus {
+  outline: none;
+  border-color: #8b5cf6; /* Morado vibrante al enfocar */
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
+}
+
+/* Etiquetas de los campos */
+.label {
+  display: block;
+  font-weight: 500;
+  color: #d1d5db;
+  margin-bottom: 0.5rem; /* 8px */
+}
+
+/* Espaciado entre grupos de formulario */
+.formGroup {
+  margin-bottom: 1.5rem; /* 24px */
+}
+
+/* Botón de acción principal */
+.buttonPrimary {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 1rem;
+  text-decoration: none;
+  background-color: #8b5cf6;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.buttonPrimary:hover {
+  background-color: #7c3aed;
+}
+
+/* Estilo para el botón cuando está deshabilitado */
+.buttonPrimary:disabled {
+  background-color: #4b5563;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Mensaje de error */
+.errorMessage {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+}
+
+/* Contenedor para los enlaces inferiores */
+.linksContainer {
+  margin-top: 1.5rem;
   text-align: center;
 }
 
-.title {
-  font-size: 2em;
-  color: #2c3e50;
-  margin-bottom: 30px;
-}
-
-.errorMessage {
-  color: #dc3545;
-  background-color: #f8d7da;
-  border: 1px solid #f5c6cb;
-  padding: 10px;
-  border-radius: 5px;
-  margin-bottom: 20px;
-  font-size: 0.9em;
-}
-
-.formGroup {
-  margin-bottom: 20px;
-  text-align: left;
-}
-
-.label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: bold;
-  color: #555;
-  font-size: 0.95em;
-}
-
-.input {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #ced4da;
-  border-radius: 6px;
-  font-size: 1em;
-  box-sizing: border-box; /* Incluye padding y border en el width */
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-.input:focus {
-  border-color: #007bff;
-  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-  outline: none;
-}
-
-.buttonPrimary {
-  width: 100%;
-  padding: 12px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 1.1em;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-  margin-top: 10px;
-}
-
-.buttonPrimary:hover:not(:disabled) {
-  background-color: #0056b3;
-}
-
-.buttonPrimary:disabled {
-  background-color: #a0c4ff;
-  cursor: not-allowed;
-}
-
-.linksContainer {
-  margin-top: 25px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
+/* Estilo para los enlaces secundarios */
 .link {
-  color: #007bff;
+  display: block;
+  color: #9ca3af;
+  font-size: 0.875rem; /* 14px */
   text-decoration: none;
-  font-size: 0.9em;
-  transition: color 0.3s ease;
+  transition: color 0.2s;
 }
 
 .link:hover {
-  color: #0056b3;
-  text-decoration: underline;
+  color: #a78bfa; /* Morado claro al pasar el ratón */
+}
+
+/* Espacio entre los enlaces */
+.link:not(:last-child) {
+  margin-bottom: 0.5rem;
 }
