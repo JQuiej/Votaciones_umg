@@ -3,73 +3,61 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '../../../lib/supabaseClient';
-import Link from 'next/link'; // Importar Link de Next.js
-import styles from './register.module.css'; // Importar el archivo CSS del módulo
+import Swal from 'sweetalert2';
+import styles from './register.module.css';
 
 export default function RegisterPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null); // Nuevo estado para errores
+  
+  // El estado de error local ya no es necesario, SweetAlert2 lo manejará.
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError(null); // Limpiar errores previos
 
-    // 1) Creamos el usuario en Auth de Supabase
-    const { data, error: authError } =
-      await supabase.auth.signUp({ email, password: pass });
+    // 1. Se llama a signUp para registrar al usuario en el sistema de autenticación de Supabase.
+    // Un trigger en la base de datos se encargará automáticamente de crear el registro
+    // correspondiente en la tabla 'public.usuarios'.
+    const { error } = await supabase.auth.signUp({ 
+      email, 
+      password: pass 
+    });
 
-    if (authError) {
-      setError(authError.message);
-      setLoading(false);
+    setLoading(false);
+
+    if (error) {
+      // Si hay un error, lo mostramos con SweetAlert2.
+      Swal.fire({
+        icon: 'error',
+        title: 'Error en el Registro',
+        text: error.message,
+      });
       return;
     }
 
-    const session = data.session;
-    const user = data.user;
-
-    // 2) Si el usuario se creó en Auth, guardamos los datos básicos en nuestra tabla 'usuarios'
-    // IMPORTANTE: NO GUARDAR LA CONTRASEÑA AQUÍ. Supabase ya la maneja de forma segura.
-    if (user) {
-      const { error: insertError } = await supabase
-        .from('usuarios')
-        .insert({
-          id_usuario: user.id,
-          correo_electronico: email,
-          // No guardar la contraseña aquí por seguridad.
-          // Si necesitas otros datos de perfil, agrégalos aquí.
-        });
-
-      if (insertError) {
-        setError('Error al guardar datos de usuario: ' + insertError.message);
-        setLoading(false);
-        return;
-      }
-    }
-
-    // 3) Redirección según si tenemos sesión o no (requiere confirmación por email)
-    if (session) {
-      // Si la sesión se creó directamente (ej. si la confirmación por email está desactivada en Supabase)
-      router.push('/dashboard/polls'); // Redirigir al dashboard principal
-    } else {
-      // Si se requiere confirmación por email
-      alert(
-        '¡Registro exitoso! Revisa tu correo electrónico para confirmar tu cuenta y luego inicia sesión.'
-      );
-      router.push('/auth/login');
-    }
-    setLoading(false);
+    // 2. Si el registro es exitoso, mostramos un mensaje de éxito.
+    // La sesión no se inicia hasta que el usuario confirma su correo.
+    await Swal.fire({
+      icon: 'success',
+      title: '¡Registro Exitoso!',
+      text: 'Hemos enviado un enlace de confirmación a tu correo electrónico. Por favor, revísalo para activar tu cuenta.',
+      confirmButtonText: 'Entendido'
+    });
+    
+    // 3. Redirigimos al usuario a la página de login para que inicie sesión después de confirmar.
+    router.push('/auth/login');
   };
 
   return (
     <div className={styles.container}>
       <div className={styles.card}>
         <h1 className={styles.title}>Crear Cuenta</h1>
-        {error && <p className={styles.errorMessage}>{error}</p>}
+        {/* El mensaje de error local se elimina, ya que Swal lo gestiona */}
         <form onSubmit={handleRegister}>
           <div className={styles.formGroup}>
             <label htmlFor="email" className={styles.label}>Email</label>
@@ -95,10 +83,11 @@ export default function RegisterPage() {
               className={styles.input}
               disabled={loading}
               required
+              minLength={6} // Es una buena práctica validar la longitud mínima
             />
           </div>
           <button type="submit" className={styles.buttonPrimary} disabled={loading}>
-            {loading ? 'Registrando...' : 'Registrar'}
+            {loading ? 'Registrando...' : 'Crear Cuenta'}
           </button>
         </form>
         <div className={styles.linksContainer}>
