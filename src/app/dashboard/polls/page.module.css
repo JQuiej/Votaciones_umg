@@ -125,3 +125,40 @@
   padding: 4rem 0;
   border-radius: 0.5rem;
 }
+
+/* Agrega esto a tu page.module.css para la lista de encuestas */
+
+.meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-top: 0.5rem;
+}
+
+.status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px; /* Forma de píldora */
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+/* Estado: activa */
+.activa {
+  background-color: #dcfce7; /* Verde claro */
+  color: #166534;           /* Verde oscuro */
+}
+
+/* Estado: finalizada */
+.finalizada {
+  background-color: #fee2e2; /* Rojo claro */
+  color: #991b1b;           /* Rojo oscuro */
+}
+
+/* Otros estados */
+.inactiva {
+  background-color: #f3f4f6; /* Gris claro */
+  color: #4b5563;           /* Gris oscuro */
+}
