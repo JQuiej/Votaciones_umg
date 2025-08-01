@@ -292,3 +292,50 @@
   margin-bottom: 0.75rem; /* (12px) Añade espacio debajo de cada opción */
   gap: 0.75rem; /* Añade espacio entre el input/radio y el texto */
 }
+/* Agrega esto a tu archivo page.module.css */
+
+.imagePreview {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background-color: #f3f4f6;
+  border-radius: 0.375rem;
+}
+
+.thumb {
+  border-radius: 0.25rem;
+  object-fit: cover;
+}
+
+.removeImgBtn {
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.removeImgBtn:hover {
+  background-color: #dc2626;
+}
+
+.removeBtnMini {
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0 0.5rem;
+}
+
+.scoreLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}

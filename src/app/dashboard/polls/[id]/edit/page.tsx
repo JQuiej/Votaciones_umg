@@ -3,7 +3,6 @@
 
 import React, { useState, useEffect, ChangeEvent } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { QRCodeCanvas } from 'qrcode.react' // Asegúrate de que qrcode.react está instalado
 import { supabase } from '../../../../../lib/supabaseClient'
 import styles from './page.module.css'
 
@@ -259,7 +258,6 @@ export default function EditPollPage() {
   if (!poll)   return null
 
   // Determinar la URL de votación para el QR
-  const voteUrl = typeof window !== 'undefined' ? `${window.location.origin}/vote/${poll.codigo_acceso}` : '';
 
   return (
     <div className={styles.container}>
