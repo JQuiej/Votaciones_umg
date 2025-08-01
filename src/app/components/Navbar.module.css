@@ -1,13 +1,4 @@
-/* --- 1. Definición de Colores del Tema --- */
-:root {
-  --nav-bg: #1f2937;           /* Fondo de la sidebar */
-  --nav-text: #d1d5db;         /* Color de texto normal */
-  --nav-text-hover: #ffffff;   /* Texto al pasar el ratón */
-  --nav-hover-bg: hsl(217, 19%, 27%);     /* Fondo al pasar el ratón */
-  --nav-active-bg: #6c3ff1;    /* Fondo del enlace activo */
-  --icon-closed: #d1d5db;      /* Color del icono hamburguesa */
-  --icon-open: #ffffff;        /* Color del icono 'X' */
-}
+/* File: src/app/components/Navbar.module.css */
 
 /* --- Botón Hamburguesa --- */
 .hamburger {
@@ -19,7 +10,7 @@
   border: none;
   display: flex;
   flex-direction: column;
-  gap: 5px; /* Un poco más de espacio */
+  gap: 5px;
   cursor: pointer;
 }
 
@@ -54,20 +45,19 @@
   transform: translateX(-100%);
   transition: transform 0.3s ease-in-out;
   background: var(--nav-bg);
-  padding: 1.5rem 1rem; /* Espaciado interno general */
-  padding-top: 5rem; /* Más espacio arriba para no chocar con la 'X' */
+  padding: 5rem 1rem 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem; /* Espacio uniforme entre enlaces */
+  gap: 0.5rem;
   z-index: 1000;
 }
 
 .nav.open {
   transform: translateX(0);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); /* Sombra más pronunciada */
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
 }
 
-/* --- 2. Estilos de Enlaces Mejorados --- */
+/* --- Estilos de Enlaces Mejorados --- */
 .nav a,
 .logoutButton {
   color: var(--nav-text);
@@ -77,12 +67,11 @@
   width: 100%;
   text-align: left;
   background: none;
-  border: none; /* Quitamos los bordes originales */
-  border-radius: 0.5rem; /* Bordes redondeados consistentes */
+  border: none;
+  border-radius: 0.5rem;
   cursor: pointer;
   font-size: 1em;
   font-weight: 500;
-  margin: 0; /* Quitamos el margen para usar 'gap' */
   transition: background-color 0.2s, color 0.2s;
 }
 
@@ -92,35 +81,34 @@
   color: var(--nav-text-hover);
 }
 
-/* --- 3. Estilo para Enlace Activo (¡NUEVO!) --- */
+/* --- Enlace Activo --- */
 .nav a.active {
   background: var(--nav-active-bg);
   color: var(--nav-text-hover);
   font-weight: 600;
 }
 
-/* --- Backdrop con Efecto Blur --- */
+/* --- Backdrop con Blur --- */
 .backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(3px); /* Efecto de desenfoque */
+  backdrop-filter: blur(3px);
   z-index: 999;
 }
 
 /* --- Botón de Salir --- */
 .logoutButton {
-  margin-top: auto; /* Empuja el botón hacia abajo */
+  margin-top: auto;
 }
 
-/* Mantenemos el hover rojo que tenías */
 .logoutButton:hover {
   background-color: rgba(220, 53, 69, 0.2);
 }
 
-/* Quitamos la regla de margen que ya no es necesaria gracias a 'gap' */
+/* Eliminamos márgenes extra gracias a 'gap' en .nav */
 .nav a + .nav a,
 .nav a + .logoutButton,
 .logoutButton + .nav a {
-  margin-top: 0; 
+  margin-top: 0;
 }
