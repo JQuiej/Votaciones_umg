@@ -13,7 +13,7 @@ export default function Navbar() {
 
   // Ocultar el menú en las páginas de autenticación y votación
   
-  if (pathname.startsWith('/auth/login') || pathname.startsWith('/auth/register') || pathname.startsWith('/vote') || pathname.startsWith('/auth/pass') || pathname.startsWith('/page.tsx')) {
+  if (pathname === '/' || pathname.startsWith('/auth') || pathname.startsWith('/vote')) {
     return null
   }
 
@@ -46,7 +46,7 @@ export default function Navbar() {
         <Link href="/dashboard/crear_encuesta" onClick={() => setOpen(false)}>Crear encuesta</Link>
 
         <Link href="/dashboard/polls"className={`${styles.navLink} ${pathname === '/dashboard/polls' ? styles.active : ''}`} onClick={() => setOpen(false)}>Mis encuestas</Link>
-        <Link href="/dashboard/realtime" onClick={() => setOpen(false)}>Encuestas en proceso</Link>
+        <Link href="/dashboard/realtime" onClick={() => setOpen(false)}>Datos de las Encuestas</Link>
         {/* Botón de cerrar sesión */}
         <button
           className={styles.logoutButton}

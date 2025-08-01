@@ -15,7 +15,21 @@
   margin-bottom: 10px;
   font-size: 2.2em;
 }
-
+.button,
+.previewBtn,
+.submitBtn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
 .subTitle {
   text-align: center;
   color: #555;
@@ -81,7 +95,7 @@
 
 .questionTitle {
   text-align: center;
-  color: #34495e;
+  color: #e2e7ed;
   margin-bottom: 15px;
   font-size: 1.6em;
   padding-bottom: 10px;
@@ -143,4 +157,65 @@
 
 .optionText {
   font-weight: bold;
+}
+
+/* Estilo para el botón de compartir */
+.shareButton {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.shareButton:hover {
+  background-color: #e5e7eb;
+}
+
+/* Estilos para el contenido del modal */
+.shareModalContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  text-align: center;
+}
+
+.qrContainerModal {
+  padding: 1rem;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  margin-bottom: 0.5rem;
+}
+
+.shareInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+}
+
+.shareInfo strong {
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.shareInput {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background-color: #f9fafb;
+  font-family: monospace;
+  text-align: center;
+  font-size: 1rem;
 }

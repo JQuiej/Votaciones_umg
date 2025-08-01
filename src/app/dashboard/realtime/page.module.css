@@ -21,7 +21,7 @@
 .heading {
   font-size: 2.25rem;
   font-weight: 700;
-  color: #111827; /* Texto principal oscuro */
+  color: #ffffff; /* Texto principal oscuro */
   margin-bottom: 2rem;
   border-bottom: 1px solid #e5e7eb; /* Línea separadora gris claro */
   padding-bottom: 1rem;
@@ -66,7 +66,21 @@
   color: #1f2937; /* Texto oscuro */
   margin-bottom: 0.25rem;
 }
-
+.button,
+.previewBtn,
+.submitBtn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
 /* Metadatos (fecha, estado) */
 .meta {
   display: block;

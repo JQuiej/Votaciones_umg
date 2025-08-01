@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import FingerprintJS from '@fingerprintjs/fingerprintjs'
 import { supabase } from '../../../lib/supabaseClient'
+import Swal from 'sweetalert2'
 import styles from './page.module.css'
 import Image from 'next/image'
 
@@ -220,7 +221,12 @@ export default function VotePage() {
       if (respErr) throw respErr
 
       setHasVoted(true)
-      alert('¡Gracias por votar!')
+      await Swal.fire({
+            icon: 'success',
+            title: '¡Voto Exitoso!',
+            text: 'Gracias por Votar',
+            confirmButtonText: 'Entendido'
+          });
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -228,12 +234,12 @@ export default function VotePage() {
     }
   }
 
-  if (loading) return <p className={styles.info}>🔄 Cargando…</p>
+  if (loading) return <p className={styles.info}>Cargando…</p>
   if (hasVoted) {
     return (
       <div className={styles.container}>
         <h1 className={styles.title}>{poll?.titulo}</h1>
-        <p className={styles.info}>✅ Ya has votado en esta encuesta. ¡Gracias!</p>
+        <p className={styles.info}>Ya has votado en esta encuesta. ¡Gracias!</p>
       </div>
     )
   }

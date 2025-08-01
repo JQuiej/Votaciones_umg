@@ -202,58 +202,74 @@ export default function CreatePollFormPage() {
   if (preview) {
     return (
       <div className={styles.container}>
-        <button onClick={() => setPreview(false)} className={styles.button}>
-          ← Volver edición
-        </button>
-        <h2 className={styles.heading}>{titulo}</h2>
+        <div className={styles.headerContainer}>
+            <button onClick={() => setPreview(false)} className={styles.backButton}>
+             ←
+            </button>
+            <h1 className={styles.heading}>Previsualización</h1>
+        </div>
+        
+        <h2 className={styles.previewPollTitle}>{titulo}</h2>
         {descripcion && <p className={styles.description}>{descripcion}</p>}
+        
         <form className={styles.form}>
           {isCandidates && (
             <fieldset className={styles.fieldset}>
               <legend>Opciones</legend>
-              {candidates.map((c,i) => (
-                <label key={i} className={styles.optionItem}>
-                  <input type="radio" name="single" disabled />
-                  {c.imageBase64 && <Image src={c.imageBase64} alt={c.name || 'Imagen de opción'} width={40} height={40} className={styles.optionImg} />}
-                  <span>{c.name}</span>
-                </label>
-              ))}
+              <div className={styles.optionsContainer}>
+                {candidates.map((c,i) => (
+                  <label key={i} className={styles.optionItem}>
+                    <input type="radio" name="single" disabled />
+                    {c.imageBase64 && <Image src={c.imageBase64} alt={c.name || 'Imagen de opción'} width={40} height={40} className={styles.optionImg} />}
+                    <span>{c.name}</span>
+                  </label>
+                ))}
+              </div>
             </fieldset>
           )}
           {isMultiple && multiQuestions.map((q, qi) => (
             <fieldset key={qi} className={styles.fieldset}>
               <legend>{q.question}</legend>
               {q.imageBase64 && <Image src={q.imageBase64} alt={q.question || 'Imagen de pregunta'} width={100} height={100} className={styles.previewImg} />}
-              {q.options.map((opt, oi) => (
-                <label key={oi} className={styles.optionItem}>
-                  <input type="checkbox" disabled />
-                  <span>{opt}</span>
-                </label>
-              ))}
+              <div className={styles.optionsContainer}>
+                {q.options.map((opt, oi) => (
+                  <label key={oi} className={styles.optionItem}>
+                    <input type="checkbox" disabled />
+                    <span>{opt}</span>
+                  </label>
+                ))}
+              </div>
             </fieldset>
           ))}
           {isScoring && scoreQuestions.map((q, qi) => (
             <fieldset key={qi} className={styles.fieldset}>
               <legend>{q.question}</legend>
               {q.imageBase64 && <Image src={q.imageBase64} alt={q.question || 'Imagen de pregunta'} width={100} height={100} className={styles.previewImg} />}
-              {q.options.map((opt, oi) => (
-                <div key={oi} className={styles.optionItem}>
-                  <span>{opt}</span>
-                  <input type="number" min={1} max={10} disabled className={styles.inputNumber} style={{width: '80px', marginLeft: 'auto'}}/>
-                </div>
-              ))}
+              <div className={styles.optionsContainer}>
+                {q.options.map((opt, oi) => (
+                  <div key={oi} className={styles.scoringItem}>
+                    <span className={styles.scoringOptionLabel}>{opt}</span>
+                    <div className={styles.sliderGroup}>
+                        <input type="range" min={1} max={10} defaultValue={5} disabled className={styles.sliderInput} />
+                        <span className={styles.sliderValue}>5</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </fieldset>
           ))}
           {isRanking && rankQuestions.map((q, qi) => (
             <fieldset key={qi} className={styles.fieldset}>
               <legend>{q.question}</legend>
               {q.imageBase64 && <Image src={q.imageBase64} alt={q.question || 'Imagen de pregunta'} width={100} height={100} className={styles.previewImg} />}
-              {q.choices.map((c, ci) => (
-                <label key={ci} className={styles.optionItem}>
-                  <span>{c.text}</span>
-                  <input type="number" min={0} max={10} disabled className={styles.inputNumber}/>
-                </label>
-              ))}
+              <div className={styles.optionsContainer}>
+                {q.choices.map((c, ci) => (
+                  <label key={ci} className={styles.optionItem}>
+                    <span>{c.text}</span>
+                    <input type="number" min={1} max={q.choices.length} disabled className={styles.inputNumber} style={{marginLeft: 'auto'}}/>
+                  </label>
+                ))}
+              </div>
             </fieldset>
           ))}
           <button type="button" disabled className={styles.submitBtn}>
@@ -266,7 +282,12 @@ export default function CreatePollFormPage() {
 
   return (
     <div className={styles.container}>
-      <h1 className={styles.heading}>Crear encuesta: {typeName}</h1>
+      <div className={styles.headerContainer}>
+        <button onClick={() => router.back()} className={styles.backButton}>
+         ←
+        </button>
+        <h1 className={styles.heading}>Crear encuesta: {typeName}</h1>
+      </div>
       <form className={styles.form} onSubmit={handleSubmit}>
         <div className={styles.field}>
           <label>Título</label>
