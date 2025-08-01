@@ -1,11 +1,12 @@
 /* Variables de tema aplicadas al body para que sean accesibles en CSS Modules */
 body {
-  --nav-bg: #0070f3;
+  --nav-bg: #1f2937; /* Fondo de la sidebar */
   --nav-color: #fff;
   --icon-closed: #333;    /* color cuando el menú está cerrado */
   --icon-open: #fff;      /* color cuando el menú está abierto */
   margin: 0;
   font-family: sans-serif;
+  
 }
 
 /* Opcional: resets o estilos compartidos */
