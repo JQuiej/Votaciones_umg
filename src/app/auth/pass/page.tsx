@@ -1,13 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import Link from 'next/link';
 import styles from './olvide_pass.module.css'; // Importar el archivo CSS del módulo
 
 export default function ForgotPasswordPage() {
-  const router = useRouter();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -162,7 +162,7 @@ export default function PollDetailPage() {
           <button onClick={handleDelete} className={styles.deleteButton}>
              Eliminar
           </button>
-          <button onClick={() => router.push(`/dashboard/realtime`)} 
+          <button onClick={() => router.push(`/dashboard/realtime/${pollId}`)} 
           className={styles.realtimeButton} disabled={poll.estado !== 'activa'} >
              Votacion en Tiempo Real
           </button>
