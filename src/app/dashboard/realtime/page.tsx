@@ -1,13 +1,14 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { supabase } from '../../../lib/supabaseClient'
+import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image'; // Importar el componente Image de Next.js
+import { supabase } from '../../../lib/supabaseClient';
 import {
   ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, Tooltip,
   PieChart, Pie, Cell, Legend
-} from 'recharts'
-import styles from './page.module.css'
+} from 'recharts';
+import styles from './page.module.css';
 
 // Estructura de datos modificada para soportar actualizaciones incrementales
 interface OptionCount {
@@ -34,18 +35,19 @@ export default function RealtimeSelectionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Usar useRef para manejar el ID del intervalo de forma segura
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
-    let pollInterval: NodeJS.Timeout;
     
     // --- Lógica de Carga de Datos ---
     const loadData = async (isInitialLoad = false) => {
-      // Solo muestra el spinner de carga la primera vez
       if (isInitialLoad) setLoading(true);
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setError('No se pudo identificar al usuario. Por favor, inicie sesión.');
-        if (pollInterval) clearInterval(pollInterval);
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
         setLoading(false);
         return;
       }
@@ -59,7 +61,7 @@ export default function RealtimeSelectionPage() {
 
       if (pollErr || !poll) {
         setError('No tienes una encuesta activa en este momento.');
-        if (pollInterval) clearInterval(pollInterval); // Detener polling si la encuesta termina
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
         setLoading(false);
         return;
       }
@@ -105,6 +107,7 @@ export default function RealtimeSelectionPage() {
 
       // --- Procesamiento de Votos ---
       const results = new Map<number, QuestionData>();
+      const optionMap = new Map(opts.map(o => [o.id_opcion, o.texto_opcion]));
       
       if (id_tipo_votacion === 1) { // Consolidado
         const consolidatedOptions = new Map<number, OptionCount>();
@@ -141,27 +144,25 @@ export default function RealtimeSelectionPage() {
             const questionResult = results.get(v.id_pregunta!);
             if (!questionResult) return;
 
-            const optionMap = new Map(opts.map(o => [o.id_opcion, o.texto_opcion]));
-
-            if (id_tipo_votacion === 2) { // Múltiple
+            if (id_tipo_votacion === 2) {
                 const option = questionResult.options.find(o => o.name === optionMap.get(v.id_opcion_seleccionada!));
                 if (option) option.count++;
-            } else if (id_tipo_votacion === 3) { // Puntuación
+            } else if (id_tipo_votacion === 3) {
                 const option = questionResult.options[0];
                 option.sumOfValues! += v.valor_puntuacion!;
                 option.voteCount!++;
-                option.count = parseFloat((option.sumOfValues! / option.voteCount!).toFixed(2));
-            } else if (id_tipo_votacion === 4) { // Ranking
+                option.count = option.voteCount! > 0 ? parseFloat((option.sumOfValues! / option.voteCount!).toFixed(2)) : 0;
+            } else if (id_tipo_votacion === 4) {
                 const option = questionResult.options.find(o => o.name === optionMap.get(v.id_opcion_seleccionada!));
                 if (option) {
                     option.sumOfValues! += v.orden_ranking!;
                     option.voteCount!++;
-                    option.count = parseFloat((option.sumOfValues! / option.voteCount!).toFixed(2));
+                    option.count = option.voteCount! > 0 ? parseFloat((option.sumOfValues! / option.voteCount!).toFixed(2)) : 0;
                 }
             }
         });
 
-        if (id_tipo_votacion === 4) { // Ordenar Ranking
+        if (id_tipo_votacion === 4) {
             results.forEach(q => q.options.sort((a, b) => a.count - b.count));
         }
       }
@@ -171,13 +172,15 @@ export default function RealtimeSelectionPage() {
     };
     
     // --- Configuración del Polling ---
-    loadData(true); // Carga inicial
-    pollInterval = setInterval(() => loadData(false), 5000); // Recarga cada 5 segundos
+    // 1. Carga inicial de datos
+    loadData(true); 
+    // 2. Inicia el polling y guarda el ID en la referencia
+    pollIntervalRef.current = setInterval(() => loadData(false), 5000); 
 
     // --- Función de Limpieza ---
     return () => {
-      if (pollInterval) {
-        clearInterval(pollInterval);
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
       }
     };
   }, []);
@@ -194,7 +197,14 @@ export default function RealtimeSelectionPage() {
           <h2 className={styles.questionTitle}>{qData.texto_pregunta}</h2>
         )}
         {qData.url_imagen && (
-          <img src={qData.url_imagen} alt={qData.texto_pregunta} className={styles.questionImg} />
+          <Image
+            src={qData.url_imagen}
+            alt={`Imagen para la pregunta: ${qData.texto_pregunta}`}
+            width={200}
+            height={150}
+            className={styles.questionImg}
+            style={{ objectFit: 'contain' }}
+          />
         )}
         {pollType === 4 && (
           <p className={styles.rankingInfo}>Menor valor = mejor ranking</p>
@@ -258,10 +268,13 @@ export default function RealtimeSelectionPage() {
           {qData.options.map((opt, i) => (
             <div key={i} className={styles.optionItem}>
               {opt.url_imagen && (
-                <img
+                <Image
                   src={opt.url_imagen}
                   alt={opt.name}
+                  width={50}
+                  height={50}
                   className={styles.optionImg}
+                  style={{ objectFit: 'cover' }}
                 />
               )}
               <span className={styles.optionText}>

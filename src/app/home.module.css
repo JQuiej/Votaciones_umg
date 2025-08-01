@@ -1,0 +1,81 @@
+/* home.module.css */
+
+/* Contenedor principal que llena la pantalla y centra el contenido */
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: #111827; /* Un fondo oscuro (gris-azul) */
+  color: #f9fafb; /* Texto claro por defecto */
+  padding: 1rem;
+  font-family: sans-serif;
+}
+
+/* Contenedor del texto y los botones */
+.content {
+  text-align: center;
+  max-width: 600px; /* Limita el ancho para mejor legibilidad */
+}
+
+/* Estilo del título principal */
+.title {
+  font-size: 3.5rem; /* Tamaño de fuente grande */
+  font-weight: 800; /* Letra muy gruesa */
+  margin-bottom: 1rem;
+  letter-spacing: -0.05em; /* Unir un poco las letras */
+  background: linear-gradient(to right, #a78bfa, #818cf8); /* Gradiente para el texto */
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Estilo para el párrafo de descripción */
+.description {
+  font-size: 1.125rem; /* Un poco más grande que el texto normal */
+  color: #d1d5db; /* Un gris claro para no competir con el título */
+  line-height: 1.6; /* Espaciado entre líneas */
+  margin-bottom: 2.5rem; /* Espacio antes de los botones */
+}
+
+/* Contenedor de los botones */
+.buttonGroup {
+  display: flex;
+  justify-content: center;
+  gap: 1rem; /* Espacio entre los botones */
+  flex-wrap: wrap; /* Permite que los botones se apilen en pantallas pequeñas */
+}
+
+/* Estilos base compartidos por ambos botones */
+.buttonPrimary,
+.buttonSecondary {
+  display: inline-block;
+  padding: 0.75rem 1.75rem;
+  border-radius: 0.5rem; /* Bordes redondeados */
+  font-weight: 600; /* Texto en negrita */
+  text-decoration: none;
+  transition: all 0.2s ease-in-out;
+  border: 2px solid transparent; /* Espacio para el borde en el secundario */
+}
+
+/* Botón principal (Iniciar Sesión) */
+.buttonPrimary {
+  background-color: #8b5cf6; /* Morado vibrante */
+  color: white;
+}
+
+.buttonPrimary:hover {
+  background-color: #7c3aed;
+  transform: translateY(-2px); /* Pequeño efecto al pasar el cursor */
+}
+
+/* Botón secundario (Registrarse) */
+.buttonSecondary {
+  background-color: transparent;
+  color: #e5e7eb;
+  border-color: #4b5563; /* Borde gris */
+}
+
+.buttonSecondary:hover {
+  background-color: #374151; /* Fondo gris oscuro al pasar el cursor */
+  border-color: #374151;
+}
