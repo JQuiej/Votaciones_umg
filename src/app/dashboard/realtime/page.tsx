@@ -9,248 +9,180 @@ import {
 } from 'recharts'
 import styles from './page.module.css'
 
+// Estructura de datos modificada para soportar actualizaciones incrementales
 interface OptionCount {
-  name: string
-  count: number
-  url_imagen?: string
+  name: string;
+  count: number; // Para tipos 1 y 2: conteo de votos. Para 3 y 4: promedio.
+  url_imagen?: string;
+  // Campos adicionales para recálculo de promedios (tipos 3 y 4)
+  voteCount?: number; // Número total de votos para esta opción/pregunta
+  sumOfValues?: number; // Suma total de puntuaciones o rankings
 }
 
 interface QuestionData {
   id_pregunta: number;
   texto_pregunta: string;
-  url_imagen?: string; // Añadido para la imagen de la pregunta
+  url_imagen?: string;
   options: OptionCount[];
 }
 
 export default function RealtimeSelectionPage() {
-  const [view, setView] = useState<'bar' | 'pie'>('bar')
-  const [data, setData] = useState<QuestionData[]>([])
-  const [pollTitle, setPollTitle] = useState<string | null>(null)
-  const [pollType, setPollType] = useState<number>(1)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [view, setView] = useState<'bar' | 'pie'>('bar');
+  const [data, setData] = useState<QuestionData[]>([]);
+  const [pollTitle, setPollTitle] = useState<string | null>(null);
+  const [pollType, setPollType] = useState<number>(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let channel: any
-    const nameMap = new Map<number, string>() // id_opcion -> texto_opcion
-    const imgMap = new Map<number, string>()  // id_opcion -> url_imagen
-    const questionNameMap = new Map<number, string>() // id_pregunta -> texto_pregunta
-    const questionImgMap = new Map<number, string>() // id_pregunta -> url_imagen de la pregunta
-    let questionIds: number[] = []
+    let pollInterval: NodeJS.Timeout;
+    
+    // --- Lógica de Carga de Datos ---
+    const loadData = async (isInitialLoad = false) => {
+      // Solo muestra el spinner de carga la primera vez
+      if (isInitialLoad) setLoading(true);
 
-    ;(async () => {
-      // 1) Encuesta activa + tipo + titulo
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setError('No se pudo identificar al usuario. Por favor, inicie sesión.');
+        if (pollInterval) clearInterval(pollInterval);
+        setLoading(false);
+        return;
+      }
+
       const { data: poll, error: pollErr } = await supabase
         .from('encuestas')
-        .select('id_encuesta,id_tipo_votacion,titulo')
+        .select('id_encuesta, id_tipo_votacion, titulo')
         .eq('estado', 'activa')
-        .single()
-      if (pollErr || !poll) {
-        setError('No hay encuesta activa en proceso.')
-        setLoading(false)
-        return
-      }
-      const { id_encuesta: pollId, id_tipo_votacion, titulo: poll_title } = poll
-      setPollType(id_tipo_votacion)
-      setPollTitle(poll_title)
+        .eq('id_usuario_creador', user.id)
+        .single();
 
-      // 2) Preguntas
+      if (pollErr || !poll) {
+        setError('No tienes una encuesta activa en este momento.');
+        if (pollInterval) clearInterval(pollInterval); // Detener polling si la encuesta termina
+        setLoading(false);
+        return;
+      }
+      
+      const { id_encuesta: pollId, id_tipo_votacion, titulo: poll_title } = poll;
+      setPollType(id_tipo_votacion);
+      setPollTitle(poll_title);
+      
       const { data: qs, error: qe } = await supabase
         .from('preguntas_encuesta')
-        .select('id_pregunta,texto_pregunta,url_imagen') // Seleccionar url_imagen de la pregunta
+        .select('id_pregunta, texto_pregunta, url_imagen')
         .eq('id_encuesta', pollId)
-        .order('id_pregunta', { ascending: true })
-      if (qe) {
-        setError('Error al cargar preguntas.')
-        setLoading(false)
-        return
-      }
-      questionIds = qs?.map(q => q.id_pregunta) || []
-      qs?.forEach(q => {
-        questionNameMap.set(q.id_pregunta, q.texto_pregunta)
-        if (q.url_imagen) questionImgMap.set(q.id_pregunta, q.url_imagen) // Guardar imagen de la pregunta
-      })
+        .order('id_pregunta', { ascending: true });
 
-      // 3) Opciones
+      if (qe || !qs) {
+        setError('Error al cargar preguntas.');
+        setLoading(false);
+        return;
+      }
+      const questionIds = qs.map(q => q.id_pregunta);
+
       const { data: opts, error: optsErr } = await supabase
         .from('opciones_pregunta')
-        .select('id_opcion,texto_opcion,url_imagen,id_pregunta')
-        .in('id_pregunta', questionIds)
+        .select('id_opcion, texto_opcion, url_imagen, id_pregunta')
+        .in('id_pregunta', questionIds);
+
       if (optsErr || !opts) {
-        setError('Error al cargar opciones.')
-        setLoading(false)
-        return
+        setError('Error al cargar opciones.');
+        setLoading(false);
+        return;
       }
-      opts.forEach(o => {
-        nameMap.set(o.id_opcion, o.texto_opcion)
-        if (o.url_imagen) imgMap.set(o.id_opcion, o.url_imagen)
-      })
+      
+      const { data: votes, error: vErr } = await supabase
+          .from('votos_respuestas')
+          .select('id_pregunta, id_opcion_seleccionada, valor_puntuacion, orden_ranking')
+          .in('id_pregunta', questionIds);
 
-      // 4) Función de carga de datos según tipo de votación
-      const loadData = async (): Promise<QuestionData[] | undefined> => {
-        if (id_tipo_votacion === 1) { // Opción única (consolidada)
-          const { data: votes, error: vErr } = await supabase
-            .from('votos_respuestas')
-            .select('id_opcion_seleccionada')
-            .in('id_pregunta', questionIds)
-          if (vErr) { setError(vErr.message); return }
+      if (vErr) {
+        setError(vErr.message);
+        setLoading(false);
+        return;
+      }
 
-          const counts: Record<number, number> = {}
-          votes?.forEach(v => {
-            const id = (v as any).id_opcion_seleccionada
-            if (id) {
-              counts[id] = (counts[id] || 0) + 1
-            }
-          })
-          const consolidatedOptions: OptionCount[] = Array.from(nameMap.entries()).map(
-            ([id, name]) => ({ name, count: counts[id] || 0, url_imagen: imgMap.get(id) })
-          )
-          return [{
+      // --- Procesamiento de Votos ---
+      const results = new Map<number, QuestionData>();
+      
+      if (id_tipo_votacion === 1) { // Consolidado
+        const consolidatedOptions = new Map<number, OptionCount>();
+        opts.forEach(opt => consolidatedOptions.set(opt.id_opcion, {
+            name: opt.texto_opcion, count: 0, url_imagen: opt.url_imagen
+        }));
+        votes?.forEach(v => {
+            const opt = consolidatedOptions.get(v.id_opcion_seleccionada!);
+            if(opt) opt.count++;
+        });
+        results.set(0, {
             id_pregunta: 0,
             texto_pregunta: "Resultados Consolidados",
-            url_imagen: undefined, // No hay imagen de pregunta para la vista consolidada
-            options: consolidatedOptions
-          }]
-        } else if (id_tipo_votacion === 2) { // Opción múltiple (por pregunta)
-          const { data: votes, error: vErr } = await supabase
-            .from('votos_respuestas')
-            .select('id_pregunta,id_opcion_seleccionada')
-            .in('id_pregunta', questionIds)
-          if (vErr) { setError(vErr.message); return }
+            url_imagen: undefined,
+            options: Array.from(consolidatedOptions.values())
+        });
+      } else { // El resto de tipos son por pregunta
+        qs.forEach(q => {
+            results.set(q.id_pregunta, {
+                id_pregunta: q.id_pregunta,
+                texto_pregunta: q.texto_pregunta,
+                url_imagen: q.url_imagen,
+                options: opts.filter(o => o.id_pregunta === q.id_pregunta).map(o => ({
+                    name: o.texto_opcion,
+                    count: 0,
+                    url_imagen: o.url_imagen,
+                    voteCount: 0,
+                    sumOfValues: 0,
+                }))
+            });
+        });
 
-          const questionOptionCounts: Record<number, Record<number, number>> = {}
-          votes?.forEach(v => {
-            const { id_pregunta, id_opcion_seleccionada } = v as any
-            if (id_opcion_seleccionada) {
-              if (!questionOptionCounts[id_pregunta]) {
-                questionOptionCounts[id_pregunta] = {}
-              }
-              questionOptionCounts[id_pregunta][id_opcion_seleccionada] = (questionOptionCounts[id_pregunta][id_opcion_seleccionada] || 0) + 1
-            }
-          })
+        votes?.forEach(v => {
+            const questionResult = results.get(v.id_pregunta!);
+            if (!questionResult) return;
 
-          const result: QuestionData[] = qs!.map(q => {
-            const optionsData: OptionCount[] = opts!
-              .filter(o => o.id_pregunta === q.id_pregunta)
-              .map(o => ({
-                name: o.texto_opcion,
-                count: questionOptionCounts[q.id_pregunta]?.[o.id_opcion] || 0,
-                url_imagen: imgMap.get(o.id_opcion)
-              }))
-            return {
-              id_pregunta: q.id_pregunta,
-              texto_pregunta: q.texto_pregunta,
-              url_imagen: questionImgMap.get(q.id_pregunta), // Incluir imagen de la pregunta
-              options: optionsData
-            }
-          })
-          return result.filter(q => q.options.length > 0)
-        } else if (id_tipo_votacion === 3) { // Puntuación
-          const { data: votes, error: vErr } = await supabase
-            .from('votos_respuestas')
-            .select('id_pregunta,valor_puntuacion')
-            .in('id_pregunta', questionIds)
-          if (vErr) { setError(vErr.message); return }
+            const optionMap = new Map(opts.map(o => [o.id_opcion, o.texto_opcion]));
 
-          const questionScores: Record<number, { sum: number, count: number }> = {}
-          votes?.forEach(v => {
-            const { id_pregunta, valor_puntuacion } = v as any
-            if (valor_puntuacion !== null) {
-              if (!questionScores[id_pregunta]) {
-                questionScores[id_pregunta] = { sum: 0, count: 0 }
-              }
-              questionScores[id_pregunta].sum += valor_puntuacion
-              questionScores[id_pregunta].count += 1
-            }
-          })
-
-          const result: QuestionData[] = questionIds.map(qId => {
-            const totalScore = questionScores[qId]?.sum || 0
-            const numVotes = questionScores[qId]?.count || 0
-            const averageScore = numVotes > 0 ? totalScore / numVotes : 0
-
-            return {
-              id_pregunta: qId,
-              texto_pregunta: questionNameMap.get(qId) || `Pregunta ${qId}`,
-              url_imagen: questionImgMap.get(qId), // Incluir imagen de la pregunta
-              options: [{
-                name: "Puntuación Promedio",
-                count: parseFloat(averageScore.toFixed(2)),
-              }]
-            }
-          })
-          return result
-        } else if (id_tipo_votacion === 4) { // Ranking
-          const { data: votes, error: vErr } = await supabase
-            .from('votos_respuestas')
-            .select('id_pregunta,id_opcion_seleccionada,orden_ranking')
-            .in('id_pregunta', questionIds)
-          if (vErr) { setError(vErr.message); return }
-
-          const questionOptionRankings: Record<number, Record<number, { sum: number, count: number }>> = {}
-
-          votes?.forEach(v => {
-            const { id_pregunta, id_opcion_seleccionada, orden_ranking } = v as any
-            if (id_opcion_seleccionada && orden_ranking !== null) {
-              if (!questionOptionRankings[id_pregunta]) {
-                questionOptionRankings[id_pregunta] = {}
-              }
-              if (!questionOptionRankings[id_pregunta][id_opcion_seleccionada]) {
-                questionOptionRankings[id_pregunta][id_opcion_seleccionada] = { sum: 0, count: 0 }
-              }
-              questionOptionRankings[id_pregunta][id_opcion_seleccionada].sum += orden_ranking
-              questionOptionRankings[id_pregunta][id_opcion_seleccionada].count += 1
-            }
-          })
-
-          const result: QuestionData[] = qs!.map(q => {
-            const optionsData: OptionCount[] = opts!
-              .filter(o => o.id_pregunta === q.id_pregunta)
-              .map(o => {
-                const optionRanking = questionOptionRankings[q.id_pregunta]?.[o.id_opcion]
-                const averageRank = optionRanking?.count ? optionRanking.sum / optionRanking.count : 0
-                return {
-                  name: o.texto_opcion,
-                  count: parseFloat(averageRank.toFixed(2)),
-                  url_imagen: imgMap.get(o.id_opcion)
+            if (id_tipo_votacion === 2) { // Múltiple
+                const option = questionResult.options.find(o => o.name === optionMap.get(v.id_opcion_seleccionada!));
+                if (option) option.count++;
+            } else if (id_tipo_votacion === 3) { // Puntuación
+                const option = questionResult.options[0];
+                option.sumOfValues! += v.valor_puntuacion!;
+                option.voteCount!++;
+                option.count = parseFloat((option.sumOfValues! / option.voteCount!).toFixed(2));
+            } else if (id_tipo_votacion === 4) { // Ranking
+                const option = questionResult.options.find(o => o.name === optionMap.get(v.id_opcion_seleccionada!));
+                if (option) {
+                    option.sumOfValues! += v.orden_ranking!;
+                    option.voteCount!++;
+                    option.count = parseFloat((option.sumOfValues! / option.voteCount!).toFixed(2));
                 }
-              })
-              .sort((a, b) => a.count - b.count)
-
-            return {
-              id_pregunta: q.id_pregunta,
-              texto_pregunta: q.texto_pregunta,
-              url_imagen: questionImgMap.get(q.id_pregunta), // Incluir imagen de la pregunta
-              options: optionsData
             }
-          })
-          return result.filter(q => q.options.length > 0)
+        });
+
+        if (id_tipo_votacion === 4) { // Ordenar Ranking
+            results.forEach(q => q.options.sort((a, b) => a.count - b.count));
         }
-        return []
       }
 
-      // 5) Carga inicial
-      const initial = await loadData()
-      if (initial) setData(initial)
-      setLoading(false)
+      setData(Array.from(results.values()));
+      if (isInitialLoad) setLoading(false);
+    };
+    
+    // --- Configuración del Polling ---
+    loadData(true); // Carga inicial
+    pollInterval = setInterval(() => loadData(false), 5000); // Recarga cada 5 segundos
 
-      // 6) Suscripción
-      channel = supabase
-        .channel(`realtime-${pollId}`)
-        .on('postgres_changes', {
-          event: 'INSERT', schema: 'public', table: 'votos_respuestas',
-          filter: `id_pregunta=in.(${questionIds.join(',')})`
-        }, async ({ new: resp }: any) => {
-          const updated = await loadData()
-          if (updated) setData(updated)
-        })
-        .subscribe()
-    })()
+    // --- Función de Limpieza ---
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, []);
 
-    return () => { if (channel) supabase.removeChannel(channel) }
-  }, [])
-
-  if (loading) return <p className={styles.info}>🔄 Cargando resultados en tiempo real…</p>
+  if (loading) return <p className={styles.info}>🔄 Cargando resultados...</p>
   if (error) return <p className={styles.error}>{error}</p>
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A28FDF', '#FF6B6B', '#5A9BD5', '#FFD700', '#8A2BE2', '#DC143C', '#228B22', '#FFDAB9'];
@@ -258,20 +190,15 @@ export default function RealtimeSelectionPage() {
   const renderCharts = () => {
     return data.map(qData => (
       <div key={qData.id_pregunta} className={styles.chartBlock}>
-        {/* Muestra el título de la pregunta solo si hay más de una pregunta o si no es el tipo consolidado */}
         {(data.length > 1 || pollType !== 1) && (
           <h2 className={styles.questionTitle}>{qData.texto_pregunta}</h2>
         )}
-
-        {/* Imagen de la pregunta */}
         {qData.url_imagen && (
           <img src={qData.url_imagen} alt={qData.texto_pregunta} className={styles.questionImg} />
         )}
-
         {pollType === 4 && (
           <p className={styles.rankingInfo}>Menor valor = mejor ranking</p>
         )}
-
         <ResponsiveContainer width="100%" height={
           pollType === 3 ? 200 :
           qData.options.length > 5 ? 400 :
@@ -312,7 +239,7 @@ export default function RealtimeSelectionPage() {
                   angle: -90,
                   position: 'insideLeft'
                 }}
-                domain={pollType === 3 ? [0, 10] : ['auto', 'auto']}
+                domain={pollType === 3 ? [0, 10] : [0, 'auto']}
               />
               <Tooltip formatter={(value: number) =>
                 pollType === 1 || pollType === 2 ? `${value} votos` :
@@ -327,7 +254,6 @@ export default function RealtimeSelectionPage() {
             </BarChart>
           )}
         </ResponsiveContainer>
-
         <div className={styles.optionList}>
           {qData.options.map((opt, i) => (
             <div key={i} className={styles.optionItem}>
@@ -356,7 +282,6 @@ export default function RealtimeSelectionPage() {
     <div className={styles.container}>
       {pollTitle && <h1 className={styles.mainTitle}>{pollTitle}</h1>}
       <h2 className={styles.subTitle}>Resultados en tiempo real</h2>
-
       {(pollType === 1 || pollType === 2) && (
         <div className={styles.toggleGroup}>
           <button
@@ -369,7 +294,6 @@ export default function RealtimeSelectionPage() {
           >Pastel</button>
         </div>
       )}
-
       {renderCharts()}
     </div>
   )

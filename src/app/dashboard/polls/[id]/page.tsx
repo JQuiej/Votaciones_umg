@@ -137,7 +137,7 @@ export default function PollDetailPage() {
     }
   }
 
-  if (loading) return <p className={styles.info}>🔄 Cargando encuesta…</p>
+  if (loading) return <p className={styles.info}> Cargando encuesta…</p>
   if (error)   return <p className={styles.error}>Error: {error}</p>
   if (!poll)   return <p className={styles.info}>Encuesta no encontrada.</p>
 
@@ -157,10 +157,14 @@ export default function PollDetailPage() {
             onClick={() => router.push(`/dashboard/polls/${pollId}/edit`)}
             className={styles.editButton}
           >
-            ✏️ Editar
+             Editar
           </button>
           <button onClick={handleDelete} className={styles.deleteButton}>
-            🗑️ Eliminar
+             Eliminar
+          </button>
+          <button onClick={() => router.push(`/dashboard/realtime`)} 
+          className={styles.realtimeButton} disabled={poll.estado !== 'activa'} >
+             Votacion en Tiempo Real
           </button>
         </div>
       </div>

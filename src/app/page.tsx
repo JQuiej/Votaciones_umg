@@ -1,15 +1,27 @@
-// src/app/page.tsx
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React from 'react';
+import Link from 'next/link';
+import styles from './home.module.css'; // Importa el archivo CSS del módulo
 
-export default function HomeRedirect() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace('/auth/login');
-  }, [router]);
-
-  return null;
+export default function HomePage() {
+  return (
+    <div className={styles.container}>
+      <div className={styles.content}>
+        <h1 className={styles.title}>Bienvenido a Pollify</h1>
+        <p className={styles.description}>
+          Crea encuestas interactivas, recopila opiniones en tiempo real y gestiona tus votaciones de forma sencilla y segura.
+          Ideal para equipos, eventos o cualquier decisión grupal.
+        </p>
+        <div className={styles.buttonGroup}>
+          <Link href="/auth/login" className={styles.buttonPrimary}>
+            Iniciar Sesión
+          </Link>
+          <Link href="/auth/register" className={styles.buttonSecondary}>
+            Registrarse
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
 }

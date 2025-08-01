@@ -49,7 +49,8 @@
 }
 
 .editButton,
-.deleteButton {
+.deleteButton,
+.realtimeButton {
   padding: 10px 15px;
   border: none;
   border-radius: 5px;
@@ -67,6 +68,13 @@
   background-color: #0056b3;
 }
 
+.realtimeButton {
+  background-color: #efd139;
+  color: white;
+}
+.realtimeButton:hover {
+  background-color: #b19819;
+}
 .deleteButton {
   background-color: #dc3545;
   color: white;

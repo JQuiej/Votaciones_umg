@@ -248,9 +248,6 @@ export default function VotePage() {
         {poll && <h1 className={styles.title}>{poll.titulo}</h1>}
         <p className={styles.error}>{error}</p>
         {/* Opcional: botón para regresar si hay un error no fatal */}
-        <button onClick={() => router.back()} className={styles.backButton}>
-          ← Regresar
-        </button>
       </div>
     );
   }
@@ -262,9 +259,6 @@ export default function VotePage() {
       <div className={styles.container}>
         <h1 className={styles.title}>{poll.titulo}</h1>
         <p className={styles.info}>Ya has votado esta encuesta.</p>
-        <button onClick={() => router.back()} className={styles.backButton}>
-          ← Regresar
-        </button>
       </div>
     )
   }

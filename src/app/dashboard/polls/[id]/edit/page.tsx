@@ -298,9 +298,9 @@ export default function EditPollPage() {
 
         {/* Type‐specific UI for Questions and Options */}
         {poll.id_tipo_votacion === 1 && (
-          // Candidatas: single question, just edit opciones
+          // Opcion: single question, just edit opciones
           <fieldset className={styles.questionBlock}>
-            <legend className={styles.legend}>Candidatas</legend>
+            <legend className={styles.legend}>Opciones</legend>
             {questions[0]?.opciones.map((opt, oi) => (
               <div key={oi} className={styles.optionRow}>
                 <input
@@ -311,7 +311,7 @@ export default function EditPollPage() {
                     if (qs[0]) qs[0].opciones[oi].texto_opcion = e.target.value
                     setQuestions(qs)
                   }}
-                  placeholder={`Candidata #${oi + 1}`}
+                  placeholder={`Opcion #${oi + 1}`}
                   required
                 />
                 <div className={styles.imageUploadGroup}>
@@ -345,7 +345,7 @@ export default function EditPollPage() {
               className={styles.addBtn}
               onClick={() => addOption(0)}
             >
-              + Agregar candidata
+              + Agregar Opcion
             </button>
           </fieldset>
         )}

@@ -117,13 +117,13 @@ export default function CreatePollFormPage() {
     try {
       // 2) Insertar preguntas y opciones
       if (isCandidates) {
-        // Una sola pregunta "Candidatas"
+        // Una sola pregunta "Opciones"
         const { data: pq, error: pqErr } = await supabase
           .from('preguntas_encuesta')
           .insert({
             id_encuesta:      pollId,
             id_tipo_votacion: Number(typeId),
-            texto_pregunta:   'Candidatas',
+            texto_pregunta:   'Opciones',
             url_imagen:       null,
           })
           .select('id_pregunta')
@@ -241,7 +241,7 @@ export default function CreatePollFormPage() {
         <form className={styles.form}>
           {isCandidates && (
             <fieldset className={styles.fieldset}>
-              <legend>Candidatas</legend>
+              <legend>Opciones</legend>
               {candidates.map((c,i) => (
                 <label key={i} className={styles.optionItem}>
                   <input type="radio" name="single" disabled />
@@ -322,7 +322,7 @@ export default function CreatePollFormPage() {
         </div>
 
         {/* Agregar según tipo */}
-       {/* Candidatas */}
+       {/* Opciones */}
         {isCandidates && candidates.map((c, i) => (
           <div key={i} className={styles.card}>
             <input
@@ -350,7 +350,7 @@ export default function CreatePollFormPage() {
         ))}
         {isCandidates && (
           <button type="button" onClick={addCandidate} className={styles.button}>
-            + Agregar candidata
+            + Agregar Opcion
           </button>
         )}
 
