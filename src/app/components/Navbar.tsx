@@ -12,7 +12,7 @@ export default function Navbar() {
   const router = useRouter() // Inicializar useRouter
 
   // Ocultar el menú en las páginas de autenticación y votación
-  
+
   if (pathname === '/' || pathname.startsWith('/auth') || pathname.startsWith('/vote')) {
     return null
   }
@@ -43,10 +43,11 @@ export default function Navbar() {
 
       {/* Sidebar deslizable */}
       <nav className={`${styles.nav} ${open ? styles.open : ''}`}>
-        <Link href="/dashboard/crear_encuesta" onClick={() => setOpen(false)}>Crear encuesta</Link>
-
-        <Link href="/dashboard/polls"className={`${styles.navLink} ${pathname === '/dashboard/polls' ? styles.active : ''}`} onClick={() => setOpen(false)}>Mis encuestas</Link>
-        <Link href="/dashboard/realtime" onClick={() => setOpen(false)}>Datos de las Encuestas</Link>
+        <Link
+        href="/dashboard/crear_encuesta"
+        className={`${styles.navLink} ${pathname === '/dashboard/crear_encuesta' ? styles.active : ''}`} onClick={() => setOpen(false)}>Crear encuesta</Link>
+        <Link href="/dashboard/polls" className={`${styles.navLink} ${pathname === '/dashboard/polls' ? styles.active : ''}`} onClick={() => setOpen(false)}>Mis encuestas</Link>
+        <Link href="/dashboard/realtime" className={`${styles.navLink} ${pathname === '/dashboard/realtime' ? styles.active : ''}`} onClick={() => setOpen(false)}>Datos de las Encuestas</Link>
         {/* Botón de cerrar sesión */}
         <button
           className={styles.logoutButton}

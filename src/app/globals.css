@@ -137,3 +137,23 @@ body {
     padding: 20px;
   }
 }
+/* SweetAlert2 Dark Theme */
+body.swal2-shown > [aria-hidden="true"] {
+  filter: blur(5px);
+}
+
+.swal2-popup {
+  font-family: 'Inter', sans-serif !important;
+  background-color: #1f2937 !important;
+  color: #f9fafb !important;
+  border-radius: 12px !important;
+}
+
+.swal2-title {
+  color: #f9fafb !important;
+}
+
+.swal2-confirm, .swal2-cancel {
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+}

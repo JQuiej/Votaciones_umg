@@ -147,18 +147,18 @@
 
 /* Estado: activa */
 .activa {
-  background-color: #dcfce7; /* Verde claro */
-  color: #166534;           /* Verde oscuro */
+  background-color: #15e05cc9; /* Verde claro */
+  color: #010a04;           /* Verde oscuro */
 }
 
 /* Estado: finalizada */
 .finalizada {
-  background-color: #fee2e2; /* Rojo claro */
-  color: #991b1b;           /* Rojo oscuro */
+  background-color: #b13e3e; /* Rojo claro */
+  color: #f0f0f0;           /* Rojo oscuro */
 }
 
 /* Otros estados */
 .inactiva {
-  background-color: #f3f4f6; /* Gris claro */
-  color: #4b5563;           /* Gris oscuro */
+  background-color: #b4b633e1; /* Gris claro */
+  color: #050505;           /* Gris oscuro */
 }
