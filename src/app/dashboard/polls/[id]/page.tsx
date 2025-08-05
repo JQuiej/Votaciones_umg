@@ -1,32 +1,32 @@
 // src/app/dashboard/polls/[id]/page.tsx
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import Image from 'next/image' // Importar Image de Next.js
+import Image from 'next/image'
 import { supabase } from '../../../../lib/supabaseClient'
 import { QRCodeCanvas as QRCode } from 'qrcode.react'
-import Swal from 'sweetalert2' // Importar SweetAlert2
+import Swal from 'sweetalert2'
 import styles from './page.module.css'
 
 interface PollDetail {
-  id_encuesta: number
+  id_encuesta:        number
   id_tipo_votacion: number
-  titulo: string
-  descripcion: string | null
-  estado: string
-  url_votacion: string
-  codigo_acceso: string
+  titulo:             string
+  descripcion:        string | null
+  estado:             string
+  url_votacion:       string
+  codigo_acceso:      string
 }
 
 interface Question {
-  id_pregunta: number
-  texto_pregunta: string
-  url_imagen: string | null
+  id_pregunta:      number
+  texto_pregunta:   string
+  url_imagen:       string | null
   opciones: {
-    id_opcion: number
-    texto_opcion: string
-    url_imagen: string | null
+    id_opcion:      number
+    texto_opcion:   string
+    url_imagen:     string | null
   }[]
 }
 
@@ -35,63 +35,86 @@ export default function PollDetailPage() {
   const { id } = useParams<{ id: string }>()
   const pollId = Number(id)
 
-  const [poll, setPoll] = useState<PollDetail | null>(null)
-  const [questions, setQuestions] = useState<Question[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [poll, setPoll]             = useState<PollDetail | null>(null)
+  const [questions, setQuestions]   = useState<Question[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [error, setError]           = useState<string | null>(null)
 
-  const [newStatus, setNewStatus] = useState<string>('pendiente')
-  const [saving, setSaving] = useState(false)
-  const statusOptions = ['activa', 'finalizada', 'inactiva'] // Opciones de estado más comunes
+  const [newStatus, setNewStatus]   = useState<string>('pendiente')
+  const [saving, setSaving]         = useState(false)
+  const statusOptions               = ['activa', 'finalizada', 'inactiva']
 
-  useEffect(() => {
-    const fetchPollData = async () => {
-      setLoading(true)
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user.id) {
-        router.replace('/auth/login')
-        return
-      }
+  // ----- INICIO DE LA CORRECCIÓN -----
 
-      const { data: pd, error: pe } = await supabase
-        .from('encuestas')
-        .select('id_encuesta,id_tipo_votacion,titulo,descripcion,estado,url_votacion,codigo_acceso')
-        .eq('id_encuesta', pollId)
-        .single()
-      if (pe || !pd) {
-        setError(pe?.message ?? 'Encuesta no encontrada')
-        setLoading(false)
-        return
-      }
-      setPoll(pd)
-      setNewStatus(pd.estado)
-
-      const { data: qs, error: qe } = await supabase
-        .from('preguntas_encuesta')
-        .select('id_pregunta,texto_pregunta,url_imagen')
-        .eq('id_encuesta', pollId)
-        .order('id_pregunta', { ascending: true })
-      if (qe) {
-        setError(qe.message); setLoading(false); return
-      }
-
-      const loaded: Question[] = []
-      for (const q of qs || []) {
-        const { data: opts, error: oe } = await supabase
-          .from('opciones_pregunta')
-          .select('id_opcion,texto_opcion,url_imagen')
-          .eq('id_pregunta', q.id_pregunta)
-          .order('id_opcion', { ascending: true })
-        if (oe) {
-          setError(oe.message); setLoading(false); return
-        }
-        loaded.push({ ...q, opciones: opts || [] })
-      }
-      setQuestions(loaded)
-      setLoading(false)
+  const fetchPollData = useCallback(async () => {
+    setLoading(true)
+    const { data:{ session } } = await supabase.auth.getSession()
+    if (!session?.user.id) {
+      router.replace('/auth/login')
+      return
     }
-    fetchPollData()
+
+    const { data: pd, error: pe } = await supabase
+      .from('encuestas')
+      .select('id_encuesta,id_tipo_votacion,titulo,descripcion,estado,url_votacion,codigo_acceso')
+      .eq('id_encuesta', pollId)
+      .single()
+
+    if (pe || !pd) {
+      setError(pe?.message ?? 'Encuesta no encontrada')
+      setLoading(false)
+      return
+    }
+    setPoll(pd)
+    setNewStatus(pd.estado)
+
+    const { data: qs, error: qe } = await supabase
+      .from('preguntas_encuesta')
+      .select('id_pregunta,texto_pregunta,url_imagen')
+      .eq('id_encuesta', pollId)
+      .order('id_pregunta',{ ascending: true })
+
+    if (qe) {
+      setError(qe.message); setLoading(false); return
+    }
+
+    const loaded: Question[] = []
+    for (const q of qs || []) {
+      const { data: opts, error: oe } = await supabase
+        .from('opciones_pregunta')
+        .select('id_opcion,texto_opcion,url_imagen')
+        .eq('id_pregunta', q.id_pregunta)
+        .order('id_opcion',{ ascending: true })
+      if (oe) {
+        setError(oe.message); setLoading(false); return
+      }
+      loaded.push({ ...q, opciones: opts || [] })
+    }
+    setQuestions(loaded)
+    setLoading(false)
   }, [pollId, router])
+
+  // useEffect para la carga inicial de datos
+  useEffect(() => {
+    fetchPollData()
+  }, [fetchPollData])
+
+  // useEffect para refrescar los datos cuando la pestaña del navegador se enfoca
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('Pestaña enfocada, refrescando datos...');
+      fetchPollData();
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    // Limpieza del listener al desmontar el componente
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [fetchPollData]);
+
+  // ----- FIN DE LA CORRECCIÓN -----
 
   const handleStatusChange = async () => {
     if (!poll || newStatus === poll.estado) return
@@ -100,7 +123,7 @@ export default function PollDetailPage() {
       .from('encuestas')
       .update({ estado: newStatus })
       .eq('id_encuesta', pollId)
-
+    
     if (error) {
       Swal.fire('Error', 'No se pudo actualizar el estado: ' + error.message, 'error')
     } else {
@@ -127,7 +150,7 @@ export default function PollDetailPage() {
         .from('encuestas')
         .delete()
         .eq('id_encuesta', pollId)
-
+      
       if (error) {
         Swal.fire('Error', 'No se pudo eliminar la encuesta: ' + error.message, 'error')
       } else {
@@ -138,8 +161,8 @@ export default function PollDetailPage() {
   }
 
   if (loading) return <p className={styles.info}>Cargando encuesta…</p>
-  if (error) return <p className={styles.error}>Error: {error}</p>
-  if (!poll) return <p className={styles.info}>Encuesta no encontrada.</p>
+  if (error)   return <p className={styles.error}>Error: {error}</p>
+  if (!poll)   return <p className={styles.info}>Encuesta no encontrada.</p>
 
   const voteUrl = typeof window !== 'undefined' ? `${window.location.origin}/vote/${poll.codigo_acceso}` : '';
 
@@ -149,7 +172,18 @@ export default function PollDetailPage() {
         <button onClick={() => router.back()} className={styles.backButton}>
           ← Regresar
         </button>
-
+        
+        <div className={styles.headerActions}>
+          <button onClick={() => router.push(`/dashboard/polls/${pollId}/edit`)} className={styles.editButton}>
+            Editar
+          </button>
+          <button onClick={handleDelete} className={styles.deleteButton}>
+            Eliminar
+          </button>
+          <button onClick={() => router.push(`/dashboard/realtime/${pollId}`)} className={styles.realtimeButton} disabled={poll.estado !== 'activa'}>
+            Votación
+          </button>
+        </div>
       </div>
       <div><h1 className={styles.title}>{poll.titulo}</h1></div>
 
@@ -177,7 +211,7 @@ export default function PollDetailPage() {
               <fieldset key={q.id_pregunta} className={styles.previewQuestion}>
                 <legend>{q.texto_pregunta}</legend>
                 {q.url_imagen && (
-                  <Image src={q.url_imagen} alt={q.texto_pregunta} width={150} height={100} className={styles.questionImg} style={{ objectFit: 'contain' }} />
+                  <Image src={q.url_imagen} alt={q.texto_pregunta} width={150} height={100} className={styles.questionImg} style={{objectFit: 'contain'}} />
                 )}
 
                 {poll.id_tipo_votacion === 1 && (
@@ -198,25 +232,22 @@ export default function PollDetailPage() {
                     </label>
                   ))
                 )}
-                
-                {/* ----- INICIO DE LA CORRECCIÓN CON SLIDER ----- */}
                 {poll.id_tipo_votacion === 3 && (
                   <div className={styles.scoringGrid}>
                     {q.opciones.map(o => (
                       <div key={o.id_opcion} className={styles.scoringItem}>
-                        <label htmlFor={`score_prev_${o.id_opcion}`} className={styles.scoringOptionLabel}>
-                          {o.url_imagen && <Image src={o.url_imagen} alt={o.texto_opcion} width={30} height={30} className={styles.previewOptionImg} />}
-                          <span>{o.texto_opcion}</span>
-                        </label>
-                        <div className={styles.sliderGroup}>
-                          <input type="range" id={`score_prev_${o.id_opcion}`} min={1} max={10} defaultValue={5} disabled className={styles.sliderInput} />
-                          <span className={styles.sliderValue}>5</span>
-                        </div>
-                      </div>
+                         <label htmlFor={`score_prev_${o.id_opcion}`} className={styles.scoringOptionLabel}>
+                           {o.url_imagen && <Image src={o.url_imagen} alt={o.texto_opcion} width={30} height={30} className={styles.previewOptionImg} />}
+                           <span>{o.texto_opcion}</span>
+                         </label>
+                         <div className={styles.sliderGroup}>
+                           <input type="range" id={`score_prev_${o.id_opcion}`} min={1} max={10} defaultValue={5} disabled className={styles.sliderInput} />
+                           <span className={styles.sliderValue}>5</span>
+                         </div>
+                       </div>
                     ))}
                   </div>
                 )}
-                {/* ----- FIN DE LA CORRECCIÓN CON SLIDER ----- */}
                 {poll.id_tipo_votacion === 4 && (
                   q.opciones.map(o => (
                     <div key={o.id_opcion} className={styles.previewRank}>
@@ -231,17 +262,6 @@ export default function PollDetailPage() {
           </form>
         </div>
 
-        <div className={styles.headerActions}>
-          <button onClick={() => router.push(`/dashboard/polls/${pollId}/edit`)} className={styles.editButton}>
-            Editar
-          </button>
-          <button onClick={handleDelete} className={styles.deleteButton}>
-            Eliminar
-          </button>
-          <button onClick={() => router.push(`/dashboard/realtime/${pollId}`)} className={styles.realtimeButton} disabled={poll.estado !== 'activa'}>
-            Votación
-          </button>
-        </div>
         <div className={styles.qrContainer}>
           <div className={styles.qrCodeWrapper}>
             {voteUrl && <QRCode value={voteUrl} size={150} level="H" />}
