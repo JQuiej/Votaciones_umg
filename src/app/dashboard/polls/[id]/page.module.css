@@ -187,7 +187,7 @@
 }
 
 /* === SISTEMA DE BOTONES === */
-.backButton, .editButton, .deleteButton, .realtimeButton, .updateStatusBtn, .voteLink {
+.backButton, .editButton, .deleteButton, .realtimeButton, .updateStatusBtn, .voteLink, .shareResultsButton {
   padding: 10px 16px; border-radius: 8px;
   font-weight: 600; cursor: pointer;
   border: 1px solid;
@@ -267,3 +267,203 @@
   }
 }
 
+/* ... tus otros estilos ... */
+
+/* Estilo para el nuevo botón de Compartir Resultados */
+.shareResultsButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background-color: #3182ce; /* Azul para diferenciarlo */
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.shareResultsButton:hover {
+  background-color: #2b6cb0;
+  transform: translateY(-1px);
+}
+/* --- Estilos Faltantes para las Nuevas Funcionalidades --- */
+
+/* Estilo para el nuevo botón de Compartir Resultados */
+.shareResultsButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background-color: #3182ce; /* Azul para diferenciarlo */
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.shareResultsButton:hover {
+  background-color: #2b6cb0;
+  transform: translateY(-1px);
+}
+
+/* Estilos para el Modal de Ganador (SweetAlert2) */
+.winnerTitle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #c99c1c;
+  font-size: 28px !important;
+}
+.pollTitleModal {
+  font-size: 16px;
+  font-style: italic;
+  color: #718096;
+  margin-top: -10px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 15px;
+}
+.winnerText {
+  margin-top: 16px;
+  color: #718096;
+  font-size: 16px;
+}
+.winnerName {
+  font-size: 36px;
+  font-weight: 700;
+  color: #2d3748;
+  margin: 8px 0 !important;
+  line-height: 1.2;
+}
+.winnerTextSmall {
+  font-size: 14px;
+  color: #a0aec0;
+  margin-bottom: 24px;
+}
+.fullRankingTitle {
+  color: #4a5568;
+  margin-top: 24px;
+  font-size: 20px;
+  text-align: left;
+}
+.resultsOl {
+  list-style-type: none;
+  padding-left: 0;
+  margin-top: 12px;
+  text-align: left;
+}
+.resultsLi {
+  display: flex;
+  align-items: center;
+  padding: 12px 8px;
+  border-bottom: 1px solid #edf2f7;
+  gap: 12px;
+}
+.resultsLi:last-child {
+  border-bottom: none;
+}
+.rankNumber {
+  font-weight: 700;
+  font-size: 16px;
+  color: #a0aec0;
+  min-width: 25px;
+}
+.resultsImg {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e2e8f0;
+}
+.resultsName {
+  flex-grow: 1;
+  font-weight: 500;
+  color: #2d3748;
+}
+.resultsCount {
+  font-weight: 500;
+  color: #718096;
+  font-size: 14px;
+}
+
+/* Estilos para el Div Oculto que se convierte en Imagen */
+.shareableResultsContainer {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background-color: #ffffff;
+  padding: 24px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  width: 450px;
+  font-family: 'Roboto', sans-serif;
+  color: #2d3748;
+}
+.shareableHeader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #c99c1c;
+}
+.shareableHeader h2 {
+  font-size: 24px;
+  margin: 0;
+}
+.shareablePollTitle {
+  font-size: 14px;
+  text-align: center;
+  color: #718096;
+  font-style: italic;
+  margin: 8px 0 16px 0;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 12px;
+}
+.shareableWinner {
+  text-align: center;
+  margin-bottom: 16px;
+}
+.shareableWinner p {
+  margin: 0;
+  color: #718096;
+}
+.shareableWinner h3 {
+  font-size: 28px;
+  margin: 4px 0 0 0;
+  color: #2d3748;
+}
+.shareableList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.shareableList li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.shareableList li:last-child {
+  border-bottom: none;
+}
+.shareableRank {
+  font-weight: 700;
+  min-width: 20px;
+  color: #a0aec0;
+}
+.shareableName {
+  flex-grow: 1;
+  font-weight: 500;
+}
+.shareableCount {
+  font-weight: 500;
+  color: #4a5568;
+}

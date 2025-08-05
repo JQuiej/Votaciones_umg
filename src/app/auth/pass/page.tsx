@@ -19,7 +19,7 @@ export default function ForgotPasswordPage() {
 
     // Llama a la función de Supabase para enviar el email de restablecimiento
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/update-password`, // URL a la que se redirigirá el usuario después de hacer clic en el enlace del email
+      redirectTo: `https://votaciones-umg.vercel.app/auth/update-password`, // URL a la que se redirigirá el usuario después de hacer clic en el enlace del email
     });
 
     setLoading(false);

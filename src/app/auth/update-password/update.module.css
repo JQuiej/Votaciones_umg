@@ -1,0 +1,109 @@
+/* update.module.css - Con el tema oscuro aplicado */
+
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: #111827; /* Color de fondo oscuro */
+  padding: 1rem;
+  font-family: sans-serif;
+}
+
+.card {
+  width: 100%;
+  max-width: 450px;
+  background-color: #1f2937; /* Color de tarjeta oscuro */
+  padding: 2.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid #374151; /* Borde sutil */
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.title {
+  text-align: center;
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: #f9fafb; /* Texto claro */
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  text-align: center;
+  color: #9ca3af; /* Texto secundario */
+  margin-bottom: 2rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.label {
+  font-weight: 500;
+  color: #d1d5db; /* Texto de etiqueta claro */
+  margin-bottom: 0.5rem;
+}
+
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #4b5563; /* Borde de input oscuro */
+  background-color: #374151; /* Fondo de input oscuro */
+  color: #f9fafb; /* Texto de input claro */
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #8b5cf6; /* Morado al enfocar */
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
+}
+
+.button {
+  width: 100%;
+  padding: 12px;
+  border-radius: 0.5rem;
+  border: none;
+  background-color: #8b5cf6; /* Morado primario */
+  color: white;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.button:hover {
+  background-color: #7c3aed; /* Morado más oscuro al pasar el ratón */
+}
+
+.button:disabled {
+  background-color: #4b5563;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.linksContainer {
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+.link {
+  color: #9ca3af; /* Color de enlace secundario */
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.link:hover {
+  color: #a78bfa; /* Morado claro al pasar el ratón */
+  text-decoration: underline;
+}
