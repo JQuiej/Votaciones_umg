@@ -115,17 +115,6 @@
   color: #374151;
 }
 
-/* Mensajes de carga o lista vacía */
-.info {
-  background-color: #ffffff;
-  border: 1px solid #e5e7eb;
-  color: #4b5563;
-  text-align: center;
-  font-size: 1.1rem;
-  padding: 4rem 0;
-  border-radius: 0.5rem;
-}
-
 /* Agrega esto a tu page.module.css para la lista de encuestas */
 
 .meta {
@@ -162,3 +151,45 @@
   background-color: #b4b633e1; /* Gris claro */
   color: #050505;           /* Gris oscuro */
 }
+
+.info {
+  font-size: 18px;
+  color: #3498db; /* Color azul */
+  text-align: center;
+  padding: 20px;
+  font-weight: bold;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+.info::after {
+  content: '';
+  animation: puntos 1.5s infinite;
+}
+
+@keyframes puntos {
+  0% {
+    content: '';
+  }
+  33% {
+    content: '.';
+  }
+  66% {
+    content: '..';
+  }
+  100% {
+    content: '...';
+  }
+}
+
+

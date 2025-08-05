@@ -41,12 +41,13 @@
   background-color: #ffffff; /* Fondo de tarjeta blanco */
   border-radius: 0.5rem;
   transition: all 0.2s ease-in-out;
-  border: 1px solid #e5e7eb; /* Borde gris muy claro */
+  border: 4px solid #e5e7eb; /* Borde gris muy claro */
 }
 
 .item:hover {
   transform: translateY(-3px);
-  border-color: #8b5cf6; /* Resaltar con color primario al pasar el cursor */
+  border-color: #33e6b0; /* Resaltar con color primario al
+  pasar el cursor */
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); /* Sombra más sutil para tema claro */
 }
 

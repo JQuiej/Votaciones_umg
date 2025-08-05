@@ -1,185 +1,150 @@
-/* === Contenedor Principal (Hoja Clara) === */
+/* === ESTILOS BASE (Mobile-First) === */
+
 .container {
   max-width: 800px;
-  margin: 2rem auto;
-  padding: 2.5rem; /* Más espaciado interno */
+  margin: 1rem auto; /* Menos margen para móviles */
+  padding: 1.5rem;   /* Menos padding para móviles */
   font-family: sans-serif;
-  background-color: hsl(0, 0%, 100%); /* El fondo de la "hoja" es blanco */
+  background-color: #f9fafb; /* Fondo ligeramente gris */
   border-radius: 0.75rem;
-   background-color: hwb(0 98% 2%); /* Fondo ligeramente gris para agrupar */
-  border: 5px solid #6633a8;
+  border: 2px solid #6633a8; /* Borde más fino */
 }
 
-/* === Encabezado === */
 .headerContainer {
   display: flex;
-  align-items: center;
+  flex-direction: column; /* Apilado en móvil */
+  align-items: flex-start; /* Alineado a la izquierda */
   gap: 1rem;
-  padding-bottom: 1.5rem;
-  border-bottom: 2px solid #6633a8;
-  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e0d7f7;
+  margin-bottom: 1.5rem;
 }
 
 .heading {
-  font-size: 1.75rem;
-  font-weight: 600;
-  color: #3b2b72; /* Texto oscuro */
+  font-size: 1.5rem; /* Tamaño de fuente ajustado para móvil */
+  font-weight: 700;
+  color: #3b2b72;
 }
 
-/* === Estructura del Formulario === */
 .form {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
-  
-}
-
-.field, .card {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  color: hsl(0, 0%, 100%);
+  gap: 1.5rem;
 }
 
 .card {
-  background-color: rgba(0, 0, 0, 0.1); /* Fondo ligeramente gris para agrupar */
-  border: 1px solid #6633a8;
+  background-color: rgba(102, 51, 168, 0.05); /* Fondo sutil */
+  border: 1px solid #e0d7f7;
   border-radius: 0.5rem;
-  padding: 1.5rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
-/* === Campos de Texto y Etiquetas === */
 .field label, .card label, .subtleLabel {
   font-weight: 600;
   color: #6633a8;
-  font-size: 1.5rem;
-  margin-bottom: 0.25rem;
-
+  font-size: 1rem; /* Tamaño ajustado */
 }
 
 .input, .textarea {
   width: 100%;
-  padding: 10px 12px;
-  background-color: #ffffff; /* Fondo ligeramente gris para agrupar */
-  border: 1px solid #6633a8;
+  padding: 12px;
+  background-color: #ffffff;
+  border: 1px solid #c4b5fd;
   border-radius: 0.5rem;
   color: #111827;
   font-size: 1rem;
+  box-sizing: border-box; /* Asegura que el padding no afecte el ancho */
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .input:focus, .textarea:focus {
   outline: none;
   border-color: #8b5cf6;
-  box-shadow: 0 0 0 3px rgba(211, 205, 238, 0.719);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
 }
 
-.textarea {
-  resize: vertical;
-}
-
-.optionRow {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-.optionRow .input {
-  flex-grow: 1;
-}
-
-/* === Carga de Imágenes === */
-.imagePreview {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.thumb {
-  border-radius: 0.25rem;
-  object-fit: cover;
-}
-
-/* === Sistema de Botones Unificado (Tema Claro) === */
 .actions {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column; /* Botones apilados en móvil */
   gap: 1rem;
   margin-top: 1rem;
-  padding-top: 2rem;
-  border-top: 1px solid #e5e7eb;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e0d7f7;
 }
 
-/* Botón Primario (Crear) */
-.submitBtn {
-  background-color: #8b5cf6;
-  color: #ffffff;
+/* === BOTONES === */
+.button, .previewBtn, .submitBtn, .backButton {
   padding: 12px 24px;
   border-radius: 0.5rem;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
-  border: #6633a8 solid 1px;
-  transition: background-color 0.2s;
-}
-.submitBtn:hover {
-  background-color: #7c3aed;
-}
-
-/* Botón Secundario (Preview, Agregar) */
-.previewBtn, .button {
-  background-color: #e0d7f7;
-  text-align: center;
-  content: center;
-  color: #6d28d9;
-  border: 1px solid #d1d5db;
-  padding: 12px 24px;
-  border-radius: 0.5rem;
-  font-weight: 750;
-  cursor: pointer;
-  display: inline-flex;
+  border: 2px solid;
+  font-size: 1rem;
+  display: flex;
+  justify-content: center;
   align-items: center;
   gap: 0.5rem;
   transition: all 0.2s;
-  border: #6633a8 solid 2px;
-  font-size: 1rem;
-}
-.previewBtn:hover, .button:hover {
-  background-color: #f4f3f6;
-  border-color: #c4b5fd;
-  border: #6d28d9 solid 3px;
 }
 
-/* Botón de Regresar */
+.submitBtn {
+  background-color: #8b5cf6;
+  color: #ffffff;
+  border-color: #8b5cf6;
+}
+.submitBtn:hover {
+  background-color: #7c3aed;
+  border-color: #7c3aed;
+}
+
+.previewBtn, .button, .backButton {
+  background-color: transparent;
+  color: #6d28d9;
+  border-color: #c4b5fd;
+}
+.previewBtn:hover, .button:hover, .backButton:hover {
+  background-color: #f5f3ff;
+  border-color: #8b5cf6;
+}
 .backButton {
-  composes: button; /* Hereda el estilo secundario */
   width: 44px;
   height: 44px;
   padding: 0;
   border-radius: 50%;
-  justify-content: center;
 }
 
-/* Botones de Eliminar */
-.removeBtn, .removeImgBtn, .removeBtnMini {
-  background-color: #fee2e2;
-  color: #b91c1c;
-  border: none;
-  border-radius: 0.5rem;
-  padding: 8px 12px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-.removeBtn:hover, .removeImgBtn:hover, .removeBtnMini:hover {
-  background-color: #fecaca;
-}
+/* ... Tus otros estilos para botones de eliminar ... */
 
-.removeBtnMini {
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  font-size: 1.2rem;
-}
-.removeImgBtn {
-  font-size: 0.8rem;
+
+/* === LA MAGIA RESPONSIVA PARA ESCRITORIO === */
+/* Esta regla se aplica solo si la pantalla mide 768px o más */
+@media (min-width: 768px) {
+  
+  .container {
+    margin: 2rem auto;
+    padding: 2.5rem; /* Restaura el padding grande */
+  }
+
+  .headerContainer {
+    flex-direction: row; /* Vuelve a poner en fila */
+    align-items: center;
+    justify-content: space-between; /* Espaciado automático */
+  }
+  
+  .heading {
+    font-size: 1.75rem; /* Restaura el tamaño de fuente grande */
+  }
+
+  .field label {
+    font-size: 1.5rem; /* Restaura el tamaño de fuente */
+  }
+
+  .actions {
+    flex-direction: row; /* Botones en fila */
+    justify-content: flex-end; /* Alineados a la derecha */
+  }
+
 }
