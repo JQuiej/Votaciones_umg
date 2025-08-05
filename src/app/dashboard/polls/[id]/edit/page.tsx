@@ -6,6 +6,7 @@ import { useRouter, useParams } from 'next/navigation'
 import Image from 'next/image'
 import { supabase } from '../../../../../lib/supabaseClient'
 import Swal from 'sweetalert2'
+import imageCompression from 'browser-image-compression';
 import styles from './page.module.css'
 
 // Interfaces
@@ -86,12 +87,38 @@ export default function EditPollPage() {
     loadPollForEditing()
   }, [pollId, router])
 
-  const readImage = (cb:(url:string)=>void) => (e:ChangeEvent<HTMLInputElement>)=>{
-    const file = e.target.files?.[0]; if(!file) return
-    const reader = new FileReader()
-    reader.onload = ()=>cb(reader.result as string)
-    reader.readAsDataURL(file)
-  }
+  const readImage = (cb: (dataUrl: string) => void) => async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Opciones de compresión: puedes ajustarlas según tus necesidades
+    const options = {
+      maxSizeMB: 0.3,          // Tamaño máximo del archivo en MB (ej: 0.5MB)
+      maxWidthOrHeight: 800,   // Redimensiona la imagen a un ancho/alto máximo de 800px
+      useWebWorker: true,      // Usa un Web Worker para no bloquear la UI durante la compresión
+    };
+
+    try {
+      console.log(`Tamaño original: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+      
+      const compressedFile = await imageCompression(file, options);
+      
+      console.log(`Tamaño comprimido: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`);
+
+      // Ahora, convierte el ARCHIVO COMPRIMIDO a Base64
+      const reader = new FileReader();
+      reader.onload = () => {
+        cb(reader.result as string);
+      };
+      reader.readAsDataURL(compressedFile);
+
+    } catch (error) {
+      console.error('Error al comprimir la imagen:', error);
+      Swal.fire('Error', 'No se pudo procesar la imagen. Por favor, intenta con otra.', 'error');
+      // Opcionalmente, limpia el input del archivo si falló
+      e.target.value = '';
+    }
+  };
 
   const addQuestion = () => {
     if (!poll) return
@@ -111,12 +138,22 @@ export default function EditPollPage() {
       newQs[qi].opciones.push({ texto_opcion:'', url_imagen:null })
       return newQs
     })
-  const removeOption = (qi:number, oi:number) =>
-    setQuestions(qs=>{
-      const newQs = [...qs]
-      newQs[qi].opciones = newQs[qi].opciones.filter((_,i)=>i!==oi)
-      return newQs
+const removeOption = (questionIndex: number, optionIndex: number) => {
+  setQuestions(currentQuestions =>
+    currentQuestions.map((question, qIdx) => {
+      // Si no es la pregunta que queremos cambiar, la devolvemos sin cambios.
+      if (qIdx !== questionIndex) {
+        return question;
+      }
+      // Si ES la pregunta, devolvemos un nuevo objeto de pregunta...
+      return {
+        ...question,
+        // ...con un nuevo array de opciones que excluye la que queremos borrar.
+        opciones: question.opciones.filter((_, oIdx) => oIdx !== optionIndex),
+      };
     })
+  );
+};
 
   const handleSave = async (e:React.FormEvent) => {
     e.preventDefault()
@@ -233,8 +270,20 @@ export default function EditPollPage() {
               <label className={styles.label}>Opciones</label>
               {q.opciones.map((opt, oi) => (
                 <div key={oi} className={styles.optionRow}>
-                  <input className={styles.input} value={opt.texto_opcion} onChange={e => {const qs = [...questions]; qs[qi].opciones[oi].texto_opcion = e.target.value; setQuestions(qs)}} placeholder={`Opción #${oi + 1}`} required />
-                  {poll.id_tipo_votacion !== 3 && ( // Las opciones de puntuación no tienen imagen individual
+                    <input 
+                      className={styles.input} 
+                      value={opt.texto_opcion} 
+                      onChange={e => {
+                        const newText = e.target.value;
+                        setQuestions(qs => qs.map((q, qIdx) => qIdx === qi ? {
+                            ...q,
+                            opciones: q.opciones.map((o, oIdx) => oIdx === oi ? { ...o, texto_opcion: newText } : o)
+                          } : q
+                        ))
+                      }} 
+                      placeholder={`Opción #${oi + 1}`} 
+                      required 
+                    />                  {poll.id_tipo_votacion !== 3 && ( // Las opciones de puntuación no tienen imagen individual
                     <div className={styles.imageUploadGroup}>
                       {opt.url_imagen ? (
                         <div className={styles.imagePreviewContainer}>
@@ -242,8 +291,18 @@ export default function EditPollPage() {
                           <button type="button" onClick={() => {const qs = [...questions]; qs[qi].opciones[oi].url_imagen = null; setQuestions(qs)}} className={styles.removeImageBtn}>×</button>
                         </div>
                       ) : (
-                        <input type="file" accept="image/*" onChange={readImage(url => {const qs = [...questions]; qs[qi].opciones[oi].url_imagen = url; setQuestions(qs)})} className={styles.fileInput} />
-                      )}
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={readImage(url => {
+                            setQuestions(qs => qs.map((q, qIdx) => qIdx === qi ? {
+                                ...q,
+                                opciones: q.opciones.map((o, oIdx) => oIdx === oi ? { ...o, url_imagen: url } : o)
+                              } : q
+                            ))
+                          })} 
+                          className={styles.fileInput} 
+                        />                      )}
                     </div>
                   )}
                   <button type="button" onClick={() => removeOption(qi, oi)} className={styles.removeBtn}>×</button>

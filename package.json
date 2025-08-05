@@ -10,7 +10,10 @@
   },
   "dependencies": {
     "@fingerprintjs/fingerprintjs": "^4.6.2",
+    "@supabase/auth-helpers-nextjs": "^0.10.0",
+    "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.53.0",
+    "browser-image-compression": "^2.0.2",
     "lucide-react": "^0.534.0",
     "next": "^15.4.4",
     "qrcode.react": "^4.2.0",

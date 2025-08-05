@@ -5,6 +5,7 @@ import React, { useState, useEffect, ChangeEvent } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Image from 'next/image'
 import { supabase } from '../../../../lib/supabaseClient'
+import imageCompression from 'browser-image-compression';
 import { Eye } from 'lucide-react'
 import Swal from 'sweetalert2'
 import styles from './page.module.css'
@@ -62,13 +63,38 @@ export default function CreatePollFormPage() {
       .then(({ data }) => data?.nombre && setTypeName(data.nombre))
   }, [typeId])
 
-  const readImage = (cb: (dataUrl: string) => void) => (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => cb(reader.result as string)
-    reader.readAsDataURL(file)
-  }
+  const readImage = (cb: (dataUrl: string) => void) => async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Opciones de compresión: puedes ajustarlas según tus necesidades
+    const options = {
+      maxSizeMB: 0.3,          // Tamaño máximo del archivo en MB (ej: 0.5MB)
+      maxWidthOrHeight: 800,   // Redimensiona la imagen a un ancho/alto máximo de 800px
+      useWebWorker: true,      // Usa un Web Worker para no bloquear la UI durante la compresión
+    };
+
+    try {
+      console.log(`Tamaño original: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+      
+      const compressedFile = await imageCompression(file, options);
+      
+      console.log(`Tamaño comprimido: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`);
+
+      // Ahora, convierte el ARCHIVO COMPRIMIDO a Base64
+      const reader = new FileReader();
+      reader.onload = () => {
+        cb(reader.result as string);
+      };
+      reader.readAsDataURL(compressedFile);
+
+    } catch (error) {
+      console.error('Error al comprimir la imagen:', error);
+      Swal.fire('Error', 'No se pudo procesar la imagen. Por favor, intenta con otra.', 'error');
+      // Opcionalmente, limpia el input del archivo si falló
+      e.target.value = '';
+    }
+  };
 
   const addCandidate = () =>
     setCandidates(prev => [...prev, { name: '', imageBase64: '' }])

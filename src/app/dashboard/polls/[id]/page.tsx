@@ -1,12 +1,12 @@
 // src/app/dashboard/polls/[id]/page.tsx
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import Image from 'next/image' // Importar Image de Next.js
+import Image from 'next/image'
 import { supabase } from '../../../../lib/supabaseClient'
 import { QRCodeCanvas as QRCode } from 'qrcode.react'
-import Swal from 'sweetalert2' // Importar SweetAlert2
+import Swal from 'sweetalert2'
 import styles from './page.module.css'
 
 interface PollDetail {
@@ -42,56 +42,79 @@ export default function PollDetailPage() {
 
   const [newStatus, setNewStatus]   = useState<string>('pendiente')
   const [saving, setSaving]         = useState(false)
-  const statusOptions               = ['activa', 'finalizada', 'inactiva'] // Opciones de estado más comunes
+  const statusOptions               = ['activa', 'finalizada', 'inactiva']
 
-  useEffect(() => {
-    const fetchPollData = async () => {
-      setLoading(true)
-      const { data:{ session } } = await supabase.auth.getSession()
-      if (!session?.user.id) {
-        router.replace('/auth/login')
-        return
-      }
+  // ----- INICIO DE LA CORRECCIÓN -----
 
-      const { data: pd, error: pe } = await supabase
-        .from('encuestas')
-        .select('id_encuesta,id_tipo_votacion,titulo,descripcion,estado,url_votacion,codigo_acceso')
-        .eq('id_encuesta', pollId)
-        .single()
-      if (pe || !pd) {
-        setError(pe?.message ?? 'Encuesta no encontrada')
-        setLoading(false)
-        return
-      }
-      setPoll(pd)
-      setNewStatus(pd.estado)
-
-      const { data: qs, error: qe } = await supabase
-        .from('preguntas_encuesta')
-        .select('id_pregunta,texto_pregunta,url_imagen')
-        .eq('id_encuesta', pollId)
-        .order('id_pregunta',{ ascending: true })
-      if (qe) {
-        setError(qe.message); setLoading(false); return
-      }
-
-      const loaded: Question[] = []
-      for (const q of qs || []) {
-        const { data: opts, error: oe } = await supabase
-          .from('opciones_pregunta')
-          .select('id_opcion,texto_opcion,url_imagen')
-          .eq('id_pregunta', q.id_pregunta)
-          .order('id_opcion',{ ascending: true })
-        if (oe) {
-          setError(oe.message); setLoading(false); return
-        }
-        loaded.push({ ...q, opciones: opts || [] })
-      }
-      setQuestions(loaded)
-      setLoading(false)
+  const fetchPollData = useCallback(async () => {
+    setLoading(true)
+    const { data:{ session } } = await supabase.auth.getSession()
+    if (!session?.user.id) {
+      router.replace('/auth/login')
+      return
     }
-    fetchPollData()
+
+    const { data: pd, error: pe } = await supabase
+      .from('encuestas')
+      .select('id_encuesta,id_tipo_votacion,titulo,descripcion,estado,url_votacion,codigo_acceso')
+      .eq('id_encuesta', pollId)
+      .single()
+
+    if (pe || !pd) {
+      setError(pe?.message ?? 'Encuesta no encontrada')
+      setLoading(false)
+      return
+    }
+    setPoll(pd)
+    setNewStatus(pd.estado)
+
+    const { data: qs, error: qe } = await supabase
+      .from('preguntas_encuesta')
+      .select('id_pregunta,texto_pregunta,url_imagen')
+      .eq('id_encuesta', pollId)
+      .order('id_pregunta',{ ascending: true })
+
+    if (qe) {
+      setError(qe.message); setLoading(false); return
+    }
+
+    const loaded: Question[] = []
+    for (const q of qs || []) {
+      const { data: opts, error: oe } = await supabase
+        .from('opciones_pregunta')
+        .select('id_opcion,texto_opcion,url_imagen')
+        .eq('id_pregunta', q.id_pregunta)
+        .order('id_opcion',{ ascending: true })
+      if (oe) {
+        setError(oe.message); setLoading(false); return
+      }
+      loaded.push({ ...q, opciones: opts || [] })
+    }
+    setQuestions(loaded)
+    setLoading(false)
   }, [pollId, router])
+
+  // useEffect para la carga inicial de datos
+  useEffect(() => {
+    fetchPollData()
+  }, [fetchPollData])
+
+  // useEffect para refrescar los datos cuando la pestaña del navegador se enfoca
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('Pestaña enfocada, refrescando datos...');
+      fetchPollData();
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    // Limpieza del listener al desmontar el componente
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [fetchPollData]);
+
+  // ----- FIN DE LA CORRECCIÓN -----
 
   const handleStatusChange = async () => {
     if (!poll || newStatus === poll.estado) return
@@ -209,7 +232,6 @@ export default function PollDetailPage() {
                     </label>
                   ))
                 )}
-                {/* ----- INICIO DE LA CORRECCIÓN CON SLIDER ----- */}
                 {poll.id_tipo_votacion === 3 && (
                   <div className={styles.scoringGrid}>
                     {q.opciones.map(o => (
@@ -226,7 +248,6 @@ export default function PollDetailPage() {
                     ))}
                   </div>
                 )}
-                {/* ----- FIN DE LA CORRECCIÓN CON SLIDER ----- */}
                 {poll.id_tipo_votacion === 4 && (
                   q.opciones.map(o => (
                     <div key={o.id_opcion} className={styles.previewRank}>
