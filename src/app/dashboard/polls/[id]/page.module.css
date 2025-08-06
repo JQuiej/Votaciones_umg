@@ -267,49 +267,47 @@
   }
 }
 
-/* ... tus otros estilos ... */
-
-/* Estilo para el nuevo botón de Compartir Resultados */
+/* === BOTÓN PARA COMPARTIR RESULTADOS === */
 .shareResultsButton {
-  display: flex;
+  /* Estructura y Espaciado */
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border: none;
+  justify-content: center;
+  gap: 0.5rem; /* 8px */
+  padding: 10px 16px;
+
+  /* Apariencia */
+  font-family: 'Inter', sans-serif;
+  font-size: 0.875rem; /* 14px */
+  font-weight: 600;
+  color: #4b5563; /* gray-600 */
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb; /* gray-200 */
   border-radius: 8px;
-  background-color: #3182ce; /* Azul para diferenciarlo */
-  color: white;
-  font-size: 14px;
-  font-weight: 500;
+  border-color: #c7d2fe; /* indigo-200 */
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* Sombra sutil */
+  
+  /* Interacción */
   cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.1s ease;
+  transition: all 0.2s ease-in-out;
 }
 
 .shareResultsButton:hover {
-  background-color: #2b6cb0;
-  transform: translateY(-1px);
-}
-/* --- Estilos Faltantes para las Nuevas Funcionalidades --- */
-
-/* Estilo para el nuevo botón de Compartir Resultados */
-.shareResultsButton {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border: none;
-  border-radius: 8px;
-  background-color: #3182ce; /* Azul para diferenciarlo */
-  color: white;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.1s ease;
+  transform: translateY(-2px); /* Mayor elevación */
+  color: #4f46e5; /* indigo-600 */
+  border-color: #c7d2fe; /* indigo-200 */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Sombra más pronunciada */
 }
 
-.shareResultsButton:hover {
-  background-color: #2b6cb0;
-  transform: translateY(-1px);
+.shareResultsButton:focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3); /* Anillo de foco más visible */
+}
+
+.shareResultsButton:active {
+  transform: translateY(0);
+  background-color: #f9fafb; /* gray-50 */
 }
 
 /* Estilos para el Modal de Ganador (SweetAlert2) */
@@ -318,13 +316,13 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: #c99c1c;
+  color: #c99c1c; /* Dorado para el título de ganador */
   font-size: 28px !important;
 }
 .pollTitleModal {
   font-size: 16px;
   font-style: italic;
-  color: #718096;
+  color: #cbcccc; /* gray-500, mejor contraste */
   margin-top: -10px;
   margin-bottom: 20px;
   border-bottom: 1px solid #e2e8f0;
@@ -332,39 +330,48 @@
 }
 .winnerText {
   margin-top: 16px;
-  color: #718096;
+  color: #fdfdfd; /* gray-600, más oscuro y legible */
   font-size: 16px;
 }
 .winnerName {
   font-size: 36px;
   font-weight: 700;
-  color: #2d3748;
+  color: #ffffff; /* gray-900, máximo contraste */
   margin: 8px 0 !important;
   line-height: 1.2;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.05); /* Sombra sutil para destacar */
 }
 .winnerTextSmall {
   font-size: 14px;
-  color: #a0aec0;
+  color: #ffffff; /* gray-500, más oscuro */
   margin-bottom: 24px;
 }
 .fullRankingTitle {
-  color: #4a5568;
+  color: #ffffff; /* gray-700 */
   margin-top: 24px;
   font-size: 20px;
+  font-weight: 600; /* Un poco más de peso para el título */
   text-align: left;
 }
 .resultsOl {
+  color: #ffffff;
   list-style-type: none;
   padding-left: 0;
   margin-top: 12px;
   text-align: left;
 }
 .resultsLi {
+  color: #f0f0f0;
   display: flex;
   align-items: center;
   padding: 12px 8px;
   border-bottom: 1px solid #edf2f7;
   gap: 12px;
+  border-radius: 6px; /* Bordes redondeados */
+  transition: background-color 0.2s ease;
+}
+.resultsLi:hover {
+  background-color: #5f5ec9; /* Un fondo sutil al pasar el mouse */
 }
 .resultsLi:last-child {
   border-bottom: none;
@@ -372,8 +379,19 @@
 .rankNumber {
   font-weight: 700;
   font-size: 16px;
-  color: #a0aec0;
+  color: #ffffff; /* gray-500, base más oscura */
   min-width: 25px;
+  text-align: center;
+}
+/* Medallas para el podio */
+.resultsLi:nth-child(1) .rankNumber {
+  color: #d97706; /* Ámbar/Oro */
+}
+.resultsLi:nth-child(2) .rankNumber {
+  color: #fcfcfc; /* Plata */
+}
+.resultsLi:nth-child(3) .rankNumber {
+  color: #a16207; /* Bronce */
 }
 .resultsImg {
   width: 40px;
@@ -385,11 +403,11 @@
 .resultsName {
   flex-grow: 1;
   font-weight: 500;
-  color: #2d3748;
+  color: #ffffff; /* gray-800 */
 }
 .resultsCount {
   font-weight: 500;
-  color: #718096;
+  color: #ffffff; /* gray-600 */
   font-size: 14px;
 }
 
