@@ -393,19 +393,43 @@
   font-size: 14px;
 }
 
-/* Estilos para el Div Oculto que se convierte en Imagen */
+/* ... todos tus estilos anteriores para .container, .header, .card, etc. ... */
+
+/* --- Estilos para el Modal de Ganador (SweetAlert2) --- */
+/* ... tus estilos existentes para .winnerTitle, .resultsLi, etc. ... */
+
+/* --- ESTILOS ACTUALIZADOS Y NUEVOS --- */
+
+/* En tu page.module.css */
 .shareableResultsContainer {
   position: absolute;
-  left: -9999px;
+  left: -9999px; /* Mantenemos el original oculto fuera de pantalla */
   top: 0;
   background-color: #ffffff;
   padding: 24px;
   border: 1px solid #e2e8f0;
   border-radius: 16px;
   width: 450px;
-  font-family: 'Roboto', sans-serif;
+  font-family: 'Inter', sans-serif; /* <-- ASEGURA QUE LA FUENTE SEA 'Inter' */
   color: #2d3748;
 }
+
+/* Nueva clase para hacer visible y centrar el contenedor temporalmente */
+.shareableResultsVisible {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Nuevo estilo para la etiqueta <img> dentro del div a compartir */
+.shareableImg {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e2e8f0;
+}
+
 .shareableHeader {
   display: flex;
   align-items: center;

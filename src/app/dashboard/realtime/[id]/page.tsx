@@ -5,10 +5,10 @@ import Image from 'next/image';
 import { useRouter, useParams } from 'next/navigation';
 import { QRCodeCanvas } from 'qrcode.react';
 import Swal from 'sweetalert2';
+import html2canvas from 'html2canvas';
 import { Share2, PartyPopper, Crown } from 'lucide-react';
 import { supabase } from '../../../../lib/supabaseClient';
 import Confetti from 'react-confetti';
-import { toPng } from 'html-to-image';
 import {
   ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -116,6 +116,8 @@ export default function RealtimePollResultsPage() {
       }
     };
 
+
+
     // --- Lógica de Realtime ---
     const channel = supabase.channel(`realtime-poll-${pollIdFromUrl}`);
 
@@ -148,6 +150,8 @@ export default function RealtimePollResultsPage() {
       }
     };
 
+
+    
     init();
 
     // 3. Limpieza: Nos aseguramos de cancelar la suscripción al salir de la página.
@@ -201,28 +205,87 @@ export default function RealtimePollResultsPage() {
   };
 
   const handleShareResults = async () => {
-    if (!shareableResultRef.current || !pollDetails) {
-      Swal.fire('Error', 'No se pudo generar la imagen de resultados.', 'error'); return;
+    if (!shareableResultRef.current) {
+      Swal.fire('Error', 'No se pudo generar la imagen de resultados.', 'error');
+      return;
     }
+
+    // 1) Clona TODO el contenedor (clases + contenido)
+    const original = shareableResultRef.current;
+    const clone = original.cloneNode(true) as HTMLElement;
+
+    // 2) Añade la clase que hace visible + centra
+    clone.classList.add(styles.shareableResultsVisible);
+
+    // 3) Forza estilos inline para off-screen
+    const { width, height } = original.getBoundingClientRect();
+    Object.assign(clone.style, {
+      position:   'absolute',
+      top:        '-9999px',
+      left:       '0px',
+      display:    'block',
+      visibility: 'visible',
+      opacity:    '1',
+      width:      `${width}px`,
+      height:     `${height}px`,
+      background: '#ffffff',
+    });
+
+    document.body.appendChild(clone);
+
     try {
-      const dataUrl = await toPng(shareableResultRef.current, { cacheBust: true, backgroundColor: 'white', pixelRatio: 2 });
+      // 4) Pre-carga imágenes internas como data-URLs (evita CORS)
+      const imgs = Array.from(clone.querySelectorAll('img'));
+      await Promise.all(imgs.map(async img => {
+        if (img.src && !img.src.startsWith('data:')) {
+          const res  = await fetch(img.src);
+          const blob = await res.blob();
+          img.src     = await new Promise<string>(resolve => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+        }
+      }));
+
+      // 5) Pequeño delay para asegurar repaint
+      await new Promise(r => setTimeout(r, 100));
+
+      // 6) Captura con html2canvas
+      const canvas = await html2canvas(clone, {
+        useCORS:         true,
+        backgroundColor: '#ffffff',
+        scale:           2.5,
+        width, height,
+      });
+      const dataUrl = canvas.toDataURL('image/png');
+
+      // 7) Comparte o descarga
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], 'resultados-encuesta.png', { type: 'image/png' });
       const winner = data[0].options[0];
-      const pollTitle = pollDetails.titulo;
-      const shareData = { title: `Resultados de: ${pollTitle}`, text: `🏆 ¡Resultados de "${pollTitle}"!\n\nEl ganador es: ${winner.name}`, files: [file] };
-      if (navigator.canShare && navigator.canShare(shareData)) {
+      const shareData = {
+        title: `Resultados de: ${pollDetails!.titulo}`,
+        text:  `🏆 ¡El ganador es: ${winner.name}!`,
+        files: [file],
+      };
+      Swal.close();
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share(shareData);
       } else {
         const link = document.createElement('a');
         link.download = 'resultados-encuesta.png';
-        link.href = dataUrl;
+        link.href     = dataUrl;
         link.click();
-        Swal.fire('Descargado', 'La imagen de resultados se ha descargado.', 'success');
+        Swal.fire('Descargado', 'Imagen de resultados guardada.', 'success');
       }
+
     } catch (err) {
-      console.error('Error al generar o compartir la imagen:', err);
-      Swal.fire('Error', 'Hubo un problema al crear la imagen de resultados.', 'error');
+      console.error('Error generando imagen:', err);
+      Swal.fire('Error', 'No se pudo crear la imagen.', 'error');
+    } finally {
+      document.body.removeChild(clone);
     }
   };
   
