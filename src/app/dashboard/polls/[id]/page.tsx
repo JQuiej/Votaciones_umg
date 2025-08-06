@@ -6,6 +6,7 @@ import { useRouter, useParams } from 'next/navigation'
 import Image from 'next/image' // Importar Image de Next.js
 import { supabase } from '../../../../lib/supabaseClient'
 import { QRCodeCanvas as QRCode } from 'qrcode.react'
+import html2canvas from 'html2canvas'
 import Swal from 'sweetalert2' // Importar SweetAlert2
 import styles from './page.module.css'
 import { Edit, Trash2, BarChart2, Award, Crown } from 'lucide-react';
@@ -140,36 +141,91 @@ const showWinnerModal = (processedData: any[]) => { // Acepta los datos como arg
   });
 };
 
-// 2. Reemplaza esta función
-const handleShareResults = async (processedData: any[]) => { // Acepta los datos como argumento
-  if (!shareableResultRef.current || !poll) {
-    Swal.fire('Error', 'No se pudo generar la imagen de resultados.', 'error'); return;
+const handleShareResults = async (processedData: any[]) => {
+  const original = shareableResultRef.current!
+  if (!original || !poll) {
+    Swal.fire('Error', 'No se encontró el elemento para la imagen.', 'error')
+    return
   }
+
+  // 1) Clona TODO el elemento (incluye la clase shareableResultsContainer)
+  const clone = original.cloneNode(true) as HTMLElement
+
+  // 2) Añade la clase que centra y hace visible el contenedor
+  clone.classList.add(styles.shareableResultsVisible)
+
+  // 3) Forzamos inline estilo para que html2canvas lo pinte fuera de pantalla
+  const { width, height } = original.getBoundingClientRect()
+  Object.assign(clone.style, {
+    position:   'absolute',
+    top:        '-9999px',
+    left:       '0px',
+    display:    'block',
+    visibility: 'visible',
+    opacity:    '1',
+    width:      `${width}px`,
+    height:     `${height}px`,
+    background: '#ffffff',
+  })
+
+  document.body.appendChild(clone)
+
   try {
-    const dataUrl = await toPng(shareableResultRef.current, { cacheBust: true, backgroundColor: 'white', pixelRatio: 2 });
-    const blob = await (await fetch(dataUrl)).blob();
-    const file = new File([blob], 'resultados-encuesta.png', { type: 'image/png' });
-    
-    // Usa los datos del argumento para obtener el ganador
-    const winner = processedData[0].options[0];
-    const pollTitle = poll.titulo;
-    const shareData = { title: `Resultados de: ${pollTitle}`, text: `🏆 ¡Resultados de "${pollTitle}"!\n\nEl ganador es: ${winner.name}`, files: [file] };
-    
-    if (navigator.canShare && navigator.canShare(shareData)) {
-      await navigator.share(shareData);
+    // 4) Pre-carga imágenes como data URLs
+    const imgs = Array.from(clone.querySelectorAll('img'))
+    await Promise.all(imgs.map(async img => {
+      if (img.src && !img.src.startsWith('data:')) {
+        const res  = await fetch(img.src)
+        const blob = await res.blob()
+        img.src     = await new Promise<string>(resolve => {
+          const reader = new FileReader()
+          reader.onloadend = () => resolve(reader.result as string)
+          reader.readAsDataURL(blob)
+        })
+      }
+    }))
+
+    // 5) Pequeño retardo para repintar
+    await new Promise(r => setTimeout(r, 100))
+
+    // 6) Captura con html2canvas
+    const canvas = await html2canvas(clone, {
+      useCORS:         true,
+      backgroundColor: '#ffffff',
+      scale:           2.5,
+      width, height,
+    })
+    const dataUrl = canvas.toDataURL('image/png')
+
+    // 7) Comparte o descarga
+    const blob = await (await fetch(dataUrl)).blob()
+    const file = new File([blob], 'resultados-encuesta.png', { type: 'image/png' })
+    const winner = processedData[0].options[0]
+    const shareData = {
+      title: `Resultados de: ${poll.titulo}`,
+      text:  `🏆 ¡El ganador es: ${winner.name}!`,
+      files: [file],
+    }
+    Swal.close()
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share(shareData)
     } else {
-      const link = document.createElement('a');
-      link.download = 'resultados-encuesta.png';
-      link.href = dataUrl;
-      link.click();
-      Swal.fire('Descargado', 'La imagen de resultados se ha descargado.', 'success');
+      const link = document.createElement('a')
+      link.download = 'resultados-encuesta.png'
+      link.href     = dataUrl
+      link.click()
+      Swal.fire('Descargado', 'Imagen de resultados guardada.', 'success')
     }
   } catch (err) {
-    console.error('Error al generar o compartir la imagen:', err);
-    Swal.fire('Error', 'Hubo un problema al crear la imagen de resultados.', 'error');
+    console.error('Error generando imagen:', err)
+    Swal.fire('Error', 'No se pudo crear la imagen.', 'error')
+  } finally {
+    document.body.removeChild(clone)
   }
-};
-  
+}
+
+
 
 // 3. Reemplaza esta función
 const handleShowResults = () => {
@@ -397,31 +453,47 @@ const handleShowResults = () => {
           </a>
         </div>
       </div>
+      {/* --- DIV OCULTO ACTUALIZADO --- */}
       {data.length > 0 && poll && (
         <div ref={shareableResultRef} className={styles.shareableResultsContainer}>
             <div className={styles.shareableHeader}>
-                <Crown size={28} />
-                <h2>Resultados Finales</h2>
-                <Crown size={28} />
+              <Crown size={28} />
+              <h2>Resultados Finales</h2>
+              <Crown size={28} />
             </div>
-            <p className={styles.shareablePollTitle}>Encuesta: &quot;{poll?.titulo}&quot;</p>
-            <div className={styles.shareableWinner}>
+            <p className={styles.shareablePollTitle}>Encuesta: &quot;{poll.titulo}&quot;</p>
+            
+                        {/* --- INICIO DE LA CORRECCIÓN --- */}
+            {/* Solo mostramos la sección del ganador si existe una primera opción */}
+            {data[0]?.options?.[0] && ( // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              <div className={styles.shareableWinner}>
                 <p>El ganador es:</p>
                 <h3>{data[0].options[0].name}</h3>
-            </div>
+              </div>
+            )}
             <ol className={styles.shareableList}>
-                {data[0].options.map((opt: any, index: number) => (
+            {/* Usamos optional chaining (?.) para evitar errores si 'options' no existe */ }
+              {data[0]?.options?.map((opt: any, index: number) => (
                 <li key={index}>
-                    <span className={styles.shareableRank}>{index + 1}.</span>
-                    <span className={styles.shareableName}>{opt.name}</span>
-                    <span className={styles.shareableCount}>
-                    {poll.id_tipo_votacion === 1 || poll.id_tipo_votacion === 2 ? `${opt.count} votos` : `${opt.count.toFixed(2)} pts`}
-                    </span>
+                  <span className={styles.shareableRank}>{index + 1}.</span>
+                  {opt.url_imagen && (
+                    <img 
+                      src={opt.url_imagen} 
+                      alt={opt.name} 
+                      className={styles.shareableImg}
+                      crossOrigin="anonymous" 
+                    />
+                  )}
+                  <span className={styles.shareableName}>{opt.name}</span>
+                  <span className={styles.shareableCount}>
+                    {poll.id_tipo_votacion < 3 ? `${opt.count} votos` : `${opt.count.toFixed(2)} pts`}
+                  </span>
                 </li>
-                ))}
+              ))}
             </ol>
+            {/* --- FIN DE LA CORRECCIÓN --- */}
         </div>
-        )}
+      )}
     </div>
   )
 }
