@@ -47,6 +47,36 @@
   font-weight: bold;
   animation: pulse 1.5s infinite;
 }
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+.info::after {
+  content: '';
+  animation: puntos 1.5s infinite;
+}
+
+@keyframes puntos {
+  0% {
+    content: '';
+  }
+  33% {
+    content: '.';
+  }
+  66% {
+    content: '..';
+  }
+  100% {
+    content: '...';
+  }
+}
 .error {
   text-align: center;
   color: #dc3545;
@@ -159,5 +189,23 @@
 .submitBtn:disabled {
   background: #a5b4fc;
   cursor: not-allowed;
-  box-shadow: none;
+}
+
+.backButton {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: background-color 0.3s ease;
+  margin-top: 20px;
+  display: block; /* Para que ocupe su propia línea y margin-top funcione */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.backButton:hover {
+  background-color: #5a6268;
 }
