@@ -81,42 +81,80 @@ export default function RealtimePollResultsPage() {
       
       setTotalVotes(votes?.length || 0);
 
+// --- INICIO DE LA LÓGICA DE DATOS CORREGIDA ---
+
       const results = new Map<number, QuestionData>();
       const optionMap = new Map(opts.map(o => [o.id_opcion, o.texto_opcion]));
 
-      if (id_tipo_votacion === 1) {
-        const consolidatedOptions = new Map<number, OptionCount>();
-        opts.forEach(opt => consolidatedOptions.set(opt.id_opcion, { name: opt.texto_opcion, count: 0, url_imagen: opt.url_imagen }));
-        votes?.forEach(v => { const opt = consolidatedOptions.get(v.id_opcion_seleccionada!); if(opt) opt.count++; });
-        results.set(0, { id_pregunta: 0, texto_pregunta: "Resultados Consolidados", options: Array.from(consolidatedOptions.values()) });
-      } else {
-        qs.forEach(q => {
-          const questionOptions = opts.filter(o => o.id_pregunta === q.id_pregunta).map(o => ({ name: o.texto_opcion, count: 0, url_imagen: o.url_imagen, voteCount: 0, sumOfValues: 0 }));
-          results.set(q.id_pregunta, { id_pregunta: q.id_pregunta, texto_pregunta: q.texto_pregunta, url_imagen: q.url_imagen, options: questionOptions });
-        });
-        votes?.forEach(v => {
-          const questionResult = results.get(v.id_pregunta!);
-          if (!questionResult) return;
-          const option = questionResult.options.find(o => o.name === optionMap.get(v.id_opcion_seleccionada!));
+      // Procesamos siempre por pregunta para TODOS los tipos de encuesta.
+      qs.forEach(q => {
+        // 1. Filtra las opciones que pertenecen a esta pregunta
+        const questionOptions = opts
+          .filter(o => o.id_pregunta === q.id_pregunta)
+          .map(o => ({
+            name: o.texto_opcion,
+            count: 0,
+            url_imagen: o.url_imagen,
+            voteCount: 0, // para promedios
+            sumOfValues: 0 // para promedios
+          }));
+
+        // 2. Filtra los votos que pertenecen a esta pregunta
+        const questionVotes = votes?.filter(v => v.id_pregunta === q.id_pregunta) || [];
+        
+        // 3. Calcula los resultados para esta pregunta específica
+        questionVotes.forEach(v => {
+          const optionName = optionMap.get(v.id_opcion_seleccionada!);
+          const option = questionOptions.find(o => o.name === optionName);
+
           if (option) {
-            if (id_tipo_votacion === 2) { option.count++; }
-            else if (id_tipo_votacion === 3) { option.sumOfValues! += v.valor_puntuacion!; option.voteCount!++; option.count = option.voteCount! > 0 ? parseFloat((option.sumOfValues! / option.voteCount!).toFixed(2)) : 0; }
-            else if (id_tipo_votacion === 4) { option.sumOfValues! += v.orden_ranking!; option.voteCount!++; option.count = option.voteCount! > 0 ? parseFloat((option.sumOfValues! / option.voteCount!).toFixed(2)) : 0; }
+            // Unificamos el conteo para tipo 1 (una opción) y 2 (múltiple opción)
+            if (id_tipo_votacion === 1 || id_tipo_votacion === 2) { 
+              option.count++;
+            } else if (id_tipo_votacion === 3) { // Puntuación
+              option.sumOfValues! += v.valor_puntuacion!;
+              option.voteCount!++;
+            } else if (id_tipo_votacion === 4) { // Ranking
+              option.sumOfValues! += v.orden_ranking!;
+              option.voteCount!++;
+            }
           }
         });
-      }
-      results.forEach(questionData => {
-        if (id_tipo_votacion === 4) { questionData.options.sort((a, b) => a.count - b.count); }
-        else { questionData.options.sort((a, b) => b.count - a.count); }
+
+        // 4. Calcula el promedio final si es de Puntuación o Ranking
+        if (id_tipo_votacion === 3 || id_tipo_votacion === 4) {
+          questionOptions.forEach(opt => {
+            opt.count = opt.voteCount! > 0 ? parseFloat((opt.sumOfValues! / opt.voteCount!).toFixed(2)) : 0;
+          });
+        }
+        
+        // 5. Añade la pregunta con sus resultados al mapa
+        results.set(q.id_pregunta, {
+          id_pregunta: q.id_pregunta,
+          texto_pregunta: q.texto_pregunta,
+          url_imagen: q.url_imagen,
+          options: questionOptions
+        });
       });
+      
+
+      // La lógica de ordenamiento se aplica a cada pregunta individualmente
+      results.forEach(questionData => {
+        if (id_tipo_votacion === 4) { // Ranking (menor es mejor)
+          questionData.options.sort((a, b) => a.count - b.count);
+        } else { // El resto (mayor es mejor)
+          questionData.options.sort((a, b) => b.count - a.count);
+        }
+      });
+      
       setData(Array.from(results.values()));
+
+      // --- FIN DE LA LÓGICA DE DATOS CORREGIDA ---
       
       if (isInitialLoad) {
         setLoading(false);
       }
     };
-
-
 
     // --- Lógica de Realtime ---
     const channel = supabase.channel(`realtime-poll-${pollIdFromUrl}`);
@@ -161,29 +199,43 @@ export default function RealtimePollResultsPage() {
 
   }, [params.id]);
 
-  const showWinnerModal = () => {
-    if (!data || data.length === 0 || data[0].options.length === 0) return;
-    const winner = data[0].options[0];
+const showWinnerModal = () => {
+    if (!data || data.length === 0) return;
     const pollType = pollDetails?.id_tipo_votacion;
-    const isRanking = pollType === 4;
-    const resultsHtml = data[0].options.map((opt, index) => `
-      <li class="${styles.resultsLi}">
-        <span class="${styles.rankNumber}">${index + 1}.</span>
-        ${opt.url_imagen ? `<img src="${opt.url_imagen}" alt="${opt.name}" class="${styles.resultsImg}" />` : ''}
-        <span class="${styles.resultsName}">${opt.name}</span>
-        <span class="${styles.resultsCount}">${pollType === 1 || pollType === 2 ? `${opt.count} votos` : `${opt.count.toFixed(2)} pts`}</span>
-      </li>`).join('');
+
+    // Construimos el HTML para cada pregunta
+    const resultsByQuestionHtml = data.map(questionData => {
+      const winner = questionData.options[0];
+      if (!winner) return ''; // Si una pregunta no tiene opciones/votos, la saltamos.
+
+      const resultsHtml = questionData.options.map((opt, index) => `
+        <li class="${styles.resultsLi}">
+          <span class="${styles.rankNumber}">${index + 1}.</span>
+          ${opt.url_imagen ? `<img src="${opt.url_imagen}" alt="${opt.name}" class="${styles.resultsImg}" />` : ''}
+          <span class="${styles.resultsName}">${opt.name}</span>
+          <span class="${styles.resultsCount}">${pollType === 1 || pollType === 2 ? `${opt.count} votos` : `${opt.count.toFixed(2)} pts`}</span>
+        </li>`).join('');
+
+      return `
+        <div class="${styles.questionResultBlock}">
+          <h3 class="${styles.questionResultTitle}">${questionData.texto_pregunta}</h3>
+          <p class="${styles.winnerTextSmall}">
+            <Crown size={18} /> Ganador: <strong class="${styles.winnerNameSmall}">${winner.name}</strong> 
+            con ${pollType === 1 || pollType === 2 ? `${winner.count} votos` : `${winner.count.toFixed(2)} pts`}
+          </p>
+          <ol class="${styles.resultsOl}">${resultsHtml}</ol>
+        </div>
+      `;
+    }).join('<hr class="${styles.questionSeparator}" />');
+
+
     Swal.fire({
       title: `<span class="${styles.winnerTitle}"><Crown size={28} /> ¡Resultados Finales! <Crown size={28} /></span>`,
       html: `<p class="${styles.pollTitleModal}">Encuesta: "${pollDetails?.titulo}"</p>
-        <p class="${styles.winnerText}">El ganador es:</p>
-        <h2 class="${styles.winnerName}">${winner.name}</h2>
-        <p class="${styles.winnerTextSmall}">con ${pollType === 1 || pollType === 2 ? `${winner.count} votos` : `${winner.count.toFixed(2)} de puntuación promedio`}${isRanking ? ' (ranking más bajo)' : ''}</p>
-        <hr /><h3 class="${styles.fullRankingTitle}">Clasificación Completa</h3>
-        <ol class="${styles.resultsOl}">${resultsHtml}</ol>`,
+             ${resultsByQuestionHtml}`,
       confirmButtonText: 'Compartir Resultados como Imagen',
       showCloseButton: true,
-      width: '500px',
+      width: '600px', // Un poco más ancho para acomodar más info
     }).then((result) => { if (result.isConfirmed) { handleShareResults(); } });
   };
 
@@ -324,14 +376,33 @@ export default function RealtimePollResultsPage() {
           {(data.length > 1 || pollType !== 1) && ( <h2 className={styles.questionTitle}>{qData.texto_pregunta}</h2> )}
           {qData.url_imagen && ( <Image src={qData.url_imagen} alt={`Imagen para la pregunta: ${qData.texto_pregunta}`} width={200} height={150} className={styles.questionImg} style={{ objectFit: 'contain' }} /> )}
           {pollType === 4 && ( <p className={styles.rankingInfo}>Menor valor = mejor ranking</p> )}
-          {(pollType === 1 || pollType === 2) && view === 'pie' ? (
-            <ResponsiveContainer width="100%" height={chartHeight}>
-              <PieChart>
-                <Pie data={qData.options} dataKey="count" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}>
-                  {qData.options.map((_, i) => (<Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />))}
-                </Pie>
-                <Tooltip formatter={(value: number) => `${value} votos`} /><Legend />
-              </PieChart>
+{(pollType === 1 || pollType === 2 || pollType === 3) && view === 'pie' ? (
+    <ResponsiveContainer width="100%" height={chartHeight}>
+        <PieChart>
+            <Pie 
+                data={qData.options} 
+                dataKey="count" 
+                nameKey="name" 
+                cx="50%" 
+                cy="50%" 
+                outerRadius={100} 
+                // Etiqueta inteligente: muestra % para votos, y valor para puntuación
+                label={({ name, percent, count }) => 
+                    pollType === 3 
+                    ? `${name}: ${count.toFixed(2)}` 
+                    : `${name} ${((percent || 0) * 100).toFixed(0)}%`
+                }
+            >
+                {qData.options.map((_, i) => (<Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />))}
+            </Pie>
+            {/* Tooltip inteligente: muestra "votos" o "pts (Promedio)" */}
+            <Tooltip formatter={(value: number) => 
+                pollType === 3 
+                ? `${value.toFixed(2)} pts (Promedio)` 
+                : `${value} votos`
+            } />
+            <Legend />
+        </PieChart>
             </ResponsiveContainer>
           ) : (
             <ResponsiveContainer width="100%" height={chartHeight}>
@@ -347,8 +418,12 @@ export default function RealtimePollResultsPage() {
             {qData.options.map((opt, i) => (
               <div key={i} className={styles.optionItem}>
                 {opt.url_imagen && (<Image src={opt.url_imagen} alt={opt.name} width={50} height={50} className={styles.optionImg} style={{ objectFit: 'cover' }} />)}
-                <span className={styles.optionText}>{opt.name}:{' '}{pollType === 1 || pollType === 2 ? `${opt.count.toString()} votos` : `${opt.count.toFixed(2)} (Prom.)`}</span>
-              </div>
+                        <span className={styles.optionText}>
+                           {/* AÑADIMOS EL INDICADOR DEL GANADOR */}
+                          {i === 0 && <Crown size={16} style={{ color: '#FFD700', marginRight: '8px' }} />}
+                          {opt.name}:{' '}
+                          {pollType === 1 || pollType === 2 ? `${opt.count.toString()} votos` : `${opt.count.toFixed(2)} (Prom.)`}
+                        </span>              </div>
             ))}
           </div>
         </div>
@@ -380,7 +455,7 @@ export default function RealtimePollResultsPage() {
       <div className={styles.totalVotesPanel}>Votos Totales: <span>{totalVotes}</span></div>
 
       <h2 className={styles.subTitle}>Resultados en tiempo real</h2>
-      {(pollType === 1 || pollType === 2) && (
+      {(pollType === 1 || pollType === 2 || pollType === 3) && (
         <div className={styles.toggleGroup}>
           <button className={view === 'bar' ? styles.toggleActive : styles.toggleButton} onClick={() => setView('bar')}>Barras</button>
           <button className={view === 'pie' ? styles.toggleActive : styles.toggleButton} onClick={() => setView('pie')}>Pastel</button>
@@ -398,21 +473,30 @@ export default function RealtimePollResultsPage() {
             <Crown size={28} />
           </div>
           <p className={styles.shareablePollTitle}>Encuesta: &quot;{pollDetails.titulo}&quot;</p>
-          <div className={styles.shareableWinner}>
-            <p>El ganador es:</p>
-            <h3>{data[0].options[0].name}</h3>
-          </div>
-          <ol className={styles.shareableList}>
-            {data[0].options.map((opt, index) => (
-              <li key={index}>
-                <span className={styles.shareableRank}>{index + 1}.</span>
-                <span className={styles.shareableName}>{opt.name}</span>
-                <span className={styles.shareableCount}>
-                  {pollType === 1 || pollType === 2 ? `${opt.count} votos` : `${opt.count.toFixed(2)} pts`}
-                </span>
-              </li>
-            ))}
-          </ol>
+          
+          {/* Mapeamos cada pregunta para mostrar sus resultados */}
+          {data.map(questionData => (
+            <div key={questionData.id_pregunta} className={styles.shareableQuestionBlock}>
+              <h3 className={styles.shareableQuestionTitle}>{questionData.texto_pregunta}</h3>
+              {questionData.options.length > 0 && (
+                <div className={styles.shareableWinner}>
+                  <p>El ganador es: <strong>{questionData.options[0].name}</strong></p>
+                </div>
+              )}
+              <ol className={styles.shareableList}>
+                {questionData.options.map((opt, index) => (
+                  <li key={index}>
+                    <span className={styles.shareableRank}>{index + 1}.</span>
+                    {opt.url_imagen && <img src={opt.url_imagen} alt={opt.name} className={styles.shareableImg} />}
+                    <span className={styles.shareableName}>{opt.name}</span>
+                    <span className={styles.shareableCount}>
+                      {pollType === 1 || pollType === 2 ? `${opt.count} votos` : `${opt.count.toFixed(2)} pts`}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ))}
         </div>
       )}
     </div>
