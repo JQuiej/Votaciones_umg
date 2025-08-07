@@ -9,6 +9,86 @@
   font-family: 'Inter', sans-serif;
   color: #333;
 }
+/* =============================================
+   CÓDIGO RESPONSIVO PARA EL MODAL DE RESULTADOS
+   ============================================= */
+@media (max-width: 600px) {
+
+  /* Ajusta el título principal del modal */
+  .winnerTitle {
+    font-size: 22px !important; /* Hacemos el título más pequeño */
+    gap: 8px;
+  }
+
+  /* Ajusta el nombre del ganador */
+  .winnerName {
+    font-size: 28px; /* Hacemos el nombre más pequeño */
+  }
+
+  /* Ajusta el texto secundario */
+  .winnerText, .winnerTextSmall {
+    font-size: 14px;
+  }
+
+  /* Ajusta la lista de resultados */
+  .resultsLi {
+    padding: 8px 4px; /* Menos espaciado vertical */
+    gap: 8px;         /* Menos espaciado entre elementos */
+  }
+
+  /* Reduce el tamaño de las imágenes en la lista */
+  .resultsImg {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* Reduce el tamaño del texto en la lista */
+  .resultsName, .resultsCount, .rankNumber {
+    font-size: 14px;
+  }
+}
+/* =============================================
+   CÓDIGO PARA RESPONSIVIDAD MÓVIL
+   ============================================= */
+@media (max-width: 768px) {
+  
+  /* 1. Ajusta el contenedor principal */
+  .container {
+    margin: 1rem;       /* Reduce el margen exterior */
+    padding: 1rem;      /* Reduce el espaciado interior */
+  }
+
+  /* 2. El encabezado se apila verticalmente */
+  .header, .headerContainer {
+    flex-direction: column; /* Apila el título y los botones */
+    align-items: flex-start;  /* Alinea todo a la izquierda */
+    gap: 1rem;
+  }
+  
+  /* 3. Ajusta el tamaño de los títulos */
+  .title, .heading, .mainTitle {
+    font-size: 1.5rem; /* Reduce el tamaño para que quepa mejor */
+    text-align: left;    /* Alinea a la izquierda en móvil */
+  }
+
+  /* 4. Las filas de opciones se apilan */
+  .optionRow {
+    flex-direction: column; /* Apila el input, imagen y botón */
+    align-items: stretch; /* Hace que ocupen el 100% del ancho */
+  }
+  
+  /* 5. Los botones de acción se apilan */
+  .actions {
+    flex-direction: column; /* Apila los botones de Previsualizar y Crear */
+    align-items: stretch; /* Ocupan todo el ancho */
+  }
+  
+  .actions .button,
+  .actions .previewBtn,
+  .actions .submitBtn {
+    width: 100%; /* Asegura que los botones sean fáciles de presionar */
+  }
+}
 
 /* ===== Header con botón “Regresar” ===== */
 .header {
@@ -275,6 +355,7 @@
 .endButton:hover {
   background-color: #c53030;
   transform: translateY(-1px);
+
 }
 
 .endButton:disabled {
@@ -294,15 +375,15 @@
   text-align: center;
   font-size: 18px;
   font-weight: 500;
-  color: #4a5568;
+  color: #4e684a;
   width: fit-content;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 4px 6px -1px rgba(243, 37, 37, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
 }
 
 .totalVotesPanel span {
   font-size: 24px;
   font-weight: 700;
-  color: #2d3748;
+  color: #46482d;
   margin-left: 8px;
   background-color: #e2e8f0;
   padding: 4px 10px;
@@ -316,32 +397,32 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: #c99c1c; /* Color dorado */
+  color: #e9b320; /* Color dorado */
   font-size: 28px !important;
 }
 
 .winnerText {
   margin-top: 16px;
-  color: #718096;
+  color: #ffffff;
   font-size: 16px;
 }
 
 .winnerName {
   font-size: 36px;
   font-weight: 700;
-  color: #2d3748;
+  color: #ffffff;
   margin: 8px 0 !important;
   line-height: 1.2;
 }
 
 .winnerTextSmall {
   font-size: 14px;
-  color: #a0aec0;
+  color:#ffffff;
   margin-bottom: 24px;
 }
 
 .fullRankingTitle {
-  color: #4a5568;
+  color:#ffffff;
   margin-top: 24px;
   font-size: 20px;
   text-align: left;
@@ -369,7 +450,7 @@
 .rankNumber {
   font-weight: 700;
   font-size: 16px;
-  color: #a0aec0;
+  color:#ffffff;
   min-width: 25px; /* Alinea los números */
 }
 
@@ -385,12 +466,12 @@
 .resultsName {
   flex-grow: 1; /* Ocupa el espacio restante */
   font-weight: 500;
-  color: #2d3748;
+  color: #ffffff;
 }
 
 .resultsCount {
   font-weight: 500;
-  color: #718096;
+  color: #ffffff;
   font-size: 14px;
 }
 
@@ -401,7 +482,7 @@
 .pollTitleModal {
   font-size: 16px;
   font-style: italic;
-  color: #718096; /* Un color gris suave */
+  color: #ffffff; /* Un color gris suave */
   margin-top: -10px; /* Lo acerca un poco al título principal */
   margin-bottom: 20px;
   border-bottom: 1px solid #e2e8f0;
@@ -422,7 +503,7 @@
   border-radius: 16px;
   width: 450px; /* Ancho fijo para la imagen */
   font-family: 'Roboto', sans-serif; /* Asegúrate de usar la misma fuente que tu app */
-  color: #2d3748;
+  color: #40482d;
 }
 
 .shareableHeader {
@@ -444,7 +525,7 @@
   color: #718096;
   font-style: italic;
   margin: 8px 0 16px 0;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2f0e5;
   padding-bottom: 12px;
 }
 
@@ -455,13 +536,13 @@
 
 .shareableWinner p {
   margin: 0;
-  color: #718096;
+  color: #719677;
 }
 
 .shareableWinner h3 {
   font-size: 28px;
   margin: 4px 0 0 0;
-  color: #2d3748;
+  color: #31482d;
 }
 
 .shareableList {
@@ -485,7 +566,7 @@
 .shareableRank {
   font-weight: 700;
   min-width: 20px;
-  color: #a0aec0;
+  color: #a5c0a0;
 }
 
 .shareableName {
@@ -554,3 +635,4 @@
   align-items: center;
   margin-bottom: 8px;
 }
+

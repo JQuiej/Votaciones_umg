@@ -32,7 +32,7 @@
 /* Estilo para el párrafo de descripción */
 .description {
   font-size: 1.125rem; /* Un poco más grande que el texto normal */
-  color: #6ee7b7;/* Un gris claro para no competir con el título */
+  color: #42f5ad;/* Un gris claro para no competir con el título */
   line-height: 1.6; /* Espaciado entre líneas */
   margin-bottom: 2.5rem; /* Espacio antes de los botones */
 }

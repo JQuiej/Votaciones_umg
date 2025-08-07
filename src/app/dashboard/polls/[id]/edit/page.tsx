@@ -312,7 +312,7 @@ export default function EditPollPage() {
                     onChange={readImage(url => setQuestions(cs => cs.map((qq, i) => i === qi ? { ...qq, url_imagen: url } : qq)))}
                     style={{ display: 'none' }}
                   />
-                  <button type="button" onClick={() => setQuestions(cs => cs.map((qq, i) => i === qi ? { ...qq, url_imagen: null } : qq))} className={styles.removeImageBtn}>×</button>
+                  <button type="button" onClick={() => setQuestions(cs => cs.map((qq, i) => i === qi ? { ...qq, url_imagen: null } : qq))} className={styles.removeImageBtn}>X</button>
                 </div>
               ) : (
                 <input type="file" accept="image/*" onChange={readImage(url => setQuestions(cs => cs.map((qq, i) => i === qi ? { ...qq, url_imagen: url } : qq)))} className={styles.fileInput} />
