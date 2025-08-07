@@ -25,13 +25,13 @@
 }
 
 .info {
+  font-size: 18px;
+  color: #3498db; /* Color azul */
   text-align: center;
-  color: #007bff;
-  font-style: italic;
-  font-size: 1.1em;
-  margin-top: 20px;
+  padding: 20px;
+  font-weight: bold;
+  animation: pulse 1.5s infinite;
 }
-
 .error {
   text-align: center;
   color: #dc3545;
