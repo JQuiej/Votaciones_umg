@@ -1,9 +1,9 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'; // Importamos useEffect
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { supabase } from '../../../lib/supabaseClient'; // Asegúrate que la ruta sea correcta
+import { supabase } from '../../../lib/supabaseClient';
 import Swal from 'sweetalert2';
 import styles from './update.module.css';
 
@@ -12,34 +12,45 @@ export default function UpdatePasswordPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  // NUEVO: Estado para saber si el usuario tiene una sesión de recuperación válida
   const [isRecoverySession, setIsRecoverySession] = useState(false);
 
-  // --- INICIO DE LA CORRECCIÓN ---
-  // NUEVO: useEffect para manejar el evento de recuperación de contraseña.
   useEffect(() => {
-    // onAuthStateChange se dispara cuando el usuario llega a esta página
-    // desde el enlace del email, porque la URL contiene el token.
+    // --- INICIO DE LA MEJORA ---
+    // Revisa si la URL contiene un error cuando la página carga.
+    const hash = window.location.hash;
+    if (hash) {
+      const params = new URLSearchParams(hash.substring(1)); // Quita el '#' inicial
+      const errorCode = params.get('error_code');
+      const errorDescription = params.get('error_description');
+
+      if (errorCode === 'otp_expired') {
+        Swal.fire({
+          icon: 'error',
+          title: 'Enlace Expirado',
+          text: 'El enlace para restablecer la contraseña ha expirado o ya no es válido. Por favor, solicita uno nuevo.',
+          confirmButtonText: 'Entendido'
+        });
+        // Como hay un error, no continuamos con la lógica de recuperación.
+        return; 
+      }
+    }
+    // --- FIN DE LA MEJORA ---
+
+    // Esta parte solo se ejecutará si no hay un error en la URL.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
-        // Este evento confirma que el usuario ha llegado desde un enlace válido.
-        // Supabase ha establecido una sesión temporal.
         setIsRecoverySession(true);
       }
     });
 
-    // Es muy importante cancelar la suscripción cuando el componente se desmonte
-    // para evitar fugas de memoria.
     return () => {
       subscription.unsubscribe();
     };
   }, []);
-  // --- FIN DE LA CORRECCIÓN ---
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Verificación adicional: el formulario solo debe funcionar si hay una sesión de recuperación.
     if (!isRecoverySession) {
         Swal.fire('Token no válido', 'Para restablecer tu contraseña, por favor usa el enlace enviado a tu correo electrónico.', 'error');
         return;
@@ -60,7 +71,6 @@ export default function UpdatePasswordPage() {
 
     setLoading(true);
 
-    // Ahora esta llamada funcionará porque el useEffect ya estableció la sesión temporal.
     const { error } = await supabase.auth.updateUser({
       password: password
     });
@@ -81,7 +91,6 @@ export default function UpdatePasswordPage() {
         timer: 3000,
         showConfirmButton: false,
       });
-      // Es mejor redirigir a la página de login para que el usuario inicie sesión con su nueva contraseña.
       router.push('/auth/login');
     }
   };
