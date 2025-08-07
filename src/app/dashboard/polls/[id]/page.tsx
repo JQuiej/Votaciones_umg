@@ -22,6 +22,18 @@ interface PollDetail {
   codigo_acceso: string
 }
 
+interface ResultOption {
+  name: string;
+  count: number;
+  url_imagen?: string | null;
+}
+
+interface ResultQuestionData {
+  id_pregunta: number;
+  texto_pregunta: string;
+  options: ResultOption[];
+}
+
 interface Question {
   id_pregunta: number
   texto_pregunta: string
@@ -101,191 +113,188 @@ export default function PollDetailPage() {
 
   // Después de tu useEffect y antes de handleStatusChange
 // 1. Reemplaza esta función
-const showWinnerModal = (processedData: any[]) => { // Acepta los datos como argumento
-  if (!processedData || processedData.length === 0 || processedData[0].options.length === 0 || !poll) return;
+  const showWinnerModal = (processedData: ResultQuestionData[]) => {
+    if (!processedData || processedData.length === 0 || !poll) return;
+    const pollType = poll.id_tipo_votacion;
 
-  const winner = processedData[0].options[0]; // Usa los datos del argumento
-  const pollType = poll.id_tipo_votacion;
-  const isRanking = pollType === 4;
+    const resultsByQuestionHtml = processedData.map(questionData => {
+      const winner = questionData.options[0];
+      if (!winner) return '';
 
-  const resultsHtml = processedData[0].options.map((opt: any, index: number) => `
-    <li class="${styles.resultsLi}">
-      <span class="${styles.rankNumber}">${index + 1}.</span>
-      ${opt.url_imagen ? `<img src="${opt.url_imagen}" alt="${opt.name}" class="${styles.resultsImg}" />` : ''}
-      <span class="${styles.resultsName}">${opt.name}</span>
-      <span class="${styles.resultsCount}">
-        ${pollType === 1 || pollType === 2 ? `${opt.count} votos` : `${opt.count.toFixed(2)} pts`}
-      </span>
-    </li>
-  `).join('');
+      const resultsHtml = questionData.options.map((opt, index) => `
+        <li class="${styles.resultsLi}">
+          <span class="${styles.rankNumber}">${index + 1}.</span>
+          ${opt.url_imagen ? `<img src="${opt.url_imagen}" alt="${opt.name}" class="${styles.resultsImg}" />` : ''}
+          <span class="${styles.resultsName}">${opt.name}</span>
+          <span class="${styles.resultsCount}">${pollType < 3 ? `${opt.count} votos` : `${opt.count.toFixed(2)} pts`}</span>
+        </li>`).join('');
 
-  Swal.fire({
-    title: `<span class="${styles.winnerTitle}"><Crown size={28} /> ¡Resultados Finales! <Crown size={28} /></span>`,
-    html: `
-      <p class="${styles.pollTitleModal}">Encuesta: "${poll.titulo}"</p>
-      <p class="${styles.winnerText}">El ganador es:</p>
-      <h2 class="${styles.winnerName}">${winner.name}</h2>
-      <p class="${styles.winnerTextSmall}">con ${pollType === 1 || pollType === 2 ? `${winner.count} votos` : `${winner.count.toFixed(2)} de puntuación promedio`}${isRanking ? ' (ranking más bajo)' : ''}</p>
-      <hr />
-      <h3 class="${styles.fullRankingTitle}">Clasificación Completa</h3>
-      <ol class="${styles.resultsOl}">${resultsHtml}</ol>
-    `,
-    confirmButtonText: 'Compartir Resultados como Imagen',
-    showCloseButton: true,
-    width: '500px',
-  }).then((result) => { 
-    if (result.isConfirmed) { 
-      // Pasamos los datos también a la función de compartir
-      handleShareResults(processedData); 
-    } 
-  });
-};
+      return `
+        <div class="${styles.questionResultBlock}">
+          <h3 class="${styles.questionResultTitle}">${questionData.texto_pregunta}</h3>
+          <p class="${styles.winnerTextSmall}">
+            🏆 Ganador: <strong class="${styles.winnerNameSmall}">${winner.name}</strong> 
+            con ${pollType < 3 ? `${winner.count} votos` : `${winner.count.toFixed(2)} pts`}
+          </p>
+          <ol class="${styles.resultsOl}">${resultsHtml}</ol>
+        </div>
+      `;
+    }).join(`<hr class="${styles.questionSeparator}" />`);
 
-const handleShareResults = async (processedData: any[]) => {
-  const original = shareableResultRef.current!
-  if (!original || !poll) {
-    Swal.fire('Error', 'No se encontró el elemento para la imagen.', 'error')
-    return
-  }
+    Swal.fire({
+      title: `<span class="${styles.winnerTitle}"><Crown size={28} /> ¡Resultados Finales! <Crown size={28} /></span>`,
+      html: `<p class="${styles.pollTitleModal}">Encuesta: "${poll.titulo}"</p>${resultsByQuestionHtml}`,
+      confirmButtonText: 'Compartir Resultados como Imagen',
+      showCloseButton: true,
+      width: '600px',
+    }).then((result) => { 
+      if (result.isConfirmed) { 
+        handleShareResults(processedData); 
+      } 
+    });
+  };
 
-  // 1) Clona TODO el elemento (incluye la clase shareableResultsContainer)
-  const clone = original.cloneNode(true) as HTMLElement
-
-  // 2) Añade la clase que centra y hace visible el contenedor
-  clone.classList.add(styles.shareableResultsVisible)
-
-  // 3) Forzamos inline estilo para que html2canvas lo pinte fuera de pantalla
-  const { width, height } = original.getBoundingClientRect()
-  Object.assign(clone.style, {
-    position:   'absolute',
-    top:        '-9999px',
-    left:       '0px',
-    display:    'block',
-    visibility: 'visible',
-    opacity:    '1',
-    width:      `${width}px`,
-    height:     `${height}px`,
-    background: '#ffffff',
-  })
-
-  document.body.appendChild(clone)
-
-  try {
-    // 4) Pre-carga imágenes como data URLs
-    const imgs = Array.from(clone.querySelectorAll('img'))
-    await Promise.all(imgs.map(async img => {
-      if (img.src && !img.src.startsWith('data:')) {
-        const res  = await fetch(img.src)
-        const blob = await res.blob()
-        img.src     = await new Promise<string>(resolve => {
-          const reader = new FileReader()
-          reader.onloadend = () => resolve(reader.result as string)
-          reader.readAsDataURL(blob)
-        })
-      }
-    }))
-
-    // 5) Pequeño retardo para repintar
-    await new Promise(r => setTimeout(r, 100))
-
-    // 6) Captura con html2canvas
-    const canvas = await html2canvas(clone, {
-      useCORS:         true,
-      backgroundColor: '#ffffff',
-      scale:           2.5,
-      width, height,
-    })
-    const dataUrl = canvas.toDataURL('image/png')
-
-    // 7) Comparte o descarga
-    const blob = await (await fetch(dataUrl)).blob()
-    const file = new File([blob], 'resultados-encuesta.png', { type: 'image/png' })
-    const winner = processedData[0].options[0]
-    const shareData = {
-      title: `Resultados de: ${poll.titulo}`,
-      text:  `🏆 ¡El ganador es: ${winner.name}!`,
-      files: [file],
-    }
-    Swal.close()
-
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share(shareData)
-    } else {
-      const link = document.createElement('a')
-      link.download = 'resultados-encuesta.png'
-      link.href     = dataUrl
-      link.click()
-      Swal.fire('Descargado', 'Imagen de resultados guardada.', 'success')
-    }
-  } catch (err) {
-    console.error('Error generando imagen:', err)
-    Swal.fire('Error', 'No se pudo crear la imagen.', 'error')
-  } finally {
-    document.body.removeChild(clone)
-  }
-}
-
-
-
-// 3. Reemplaza esta función
-const handleShowResults = () => {
-  const loadAndShow = async () => {
-    if (!poll) return;
-    Swal.fire({ title: 'Generando resultados...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-    
-    const { id_encuesta: pollId, id_tipo_votacion } = poll;
-    const { data: qs, error: qe } = await supabase.from('preguntas_encuesta').select('id_pregunta, texto_pregunta, url_imagen').eq('id_encuesta', pollId).order('id_pregunta', { ascending: true });
-    if (qe || !qs) { Swal.fire('Error', 'No se pudieron cargar las preguntas.', 'error'); return; }
-
-    const questionIds = qs.map(q => q.id_pregunta);
-    const { data: opts, error: optsErr } = await supabase.from('opciones_pregunta').select('id_opcion, texto_opcion, url_imagen, id_pregunta').in('id_pregunta', questionIds);
-    if (optsErr || !opts) { Swal.fire('Error', 'No se pudieron cargar las opciones.', 'error'); return; }
-
-    const { data: votes, error: vErr } = await supabase.from('votos_respuestas').select('id_pregunta, id_opcion_seleccionada, valor_puntuacion, orden_ranking').in('id_pregunta', questionIds);
-    if (vErr) { Swal.fire('Error', 'No se pudieron cargar los votos.', 'error'); return; }
-    if (!votes || votes.length === 0) {
-      Swal.fire('Sin Votos', 'Aún no hay votos registrados para esta encuesta.', 'info');
+  const handleShareResults = async (processedData: ResultQuestionData[]) => {
+    const original = shareableResultRef.current!;
+    if (!original || !poll) {
+      Swal.fire('Error', 'No se encontró el elemento para la imagen.', 'error');
       return;
     }
 
-    const results = new Map<number, any>();
-    const optionMap = new Map(opts.map(o => [o.id_opcion, o.texto_opcion]));
+    const clone = original.cloneNode(true) as HTMLElement;
+    clone.classList.add(styles.shareableResultsVisible);
 
-    if (id_tipo_votacion === 1) {
-      const consolidatedOptions = new Map();
-      opts.forEach(opt => consolidatedOptions.set(opt.id_opcion, { name: opt.texto_opcion, count: 0, url_imagen: opt.url_imagen }));
-      votes.forEach(v => { const opt = consolidatedOptions.get(v.id_opcion_seleccionada!); if(opt) opt.count++; });
-      results.set(0, { id_pregunta: 0, texto_pregunta: "Resultados Consolidados", options: Array.from(consolidatedOptions.values()) });
-    } else {
-      qs.forEach(q => {
-        const questionOptions = opts.filter(o => o.id_pregunta === q.id_pregunta).map(o => ({ name: o.texto_opcion, count: 0, url_imagen: o.url_imagen, voteCount: 0, sumOfValues: 0 }));
-        results.set(q.id_pregunta, { id_pregunta: q.id_pregunta, texto_pregunta: q.texto_pregunta, url_imagen: q.url_imagen, options: questionOptions });
+    const { width, height } = original.getBoundingClientRect();
+    Object.assign(clone.style, {
+      position: 'absolute', top: '-9999px', left: '0px', display: 'block', visibility: 'visible',
+      opacity: '1', width: `${width}px`, height: `${height}px`, background: '#ffffff',
+    });
+
+    document.body.appendChild(clone);
+
+    try {
+      const imgs = Array.from(clone.querySelectorAll('img'));
+      await Promise.all(imgs.map(async img => {
+        if (img.src && !img.src.startsWith('data:')) {
+          try {
+            const res  = await fetch(img.src);
+            const blob = await res.blob();
+            img.src = await new Promise<string>(resolve => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+          } catch (e) { console.error("Error fetching image for canvas: ", e); }
+        }
+      }));
+
+      await new Promise(r => setTimeout(r, 100));
+      const canvas = await html2canvas(clone, {
+        useCORS: true, backgroundColor: '#ffffff', scale: 2.5, width, height,
       });
-      votes.forEach(v => {
-        const questionResult = results.get(v.id_pregunta!);
-        if (!questionResult) return;
-        const option = questionResult.options.find((o: any) => o.name === optionMap.get(v.id_opcion_seleccionada!));
-        if (option) {
-          if (id_tipo_votacion === 2) { option.count++; }
-          else if (id_tipo_votacion === 3) { option.sumOfValues! += v.valor_puntuacion!; option.voteCount!++; option.count = option.voteCount! > 0 ? parseFloat((option.sumOfValues! / option.voteCount!).toFixed(2)) : 0; }
-          else if (id_tipo_votacion === 4) { option.sumOfValues! += v.orden_ranking!; option.voteCount!++; option.count = option.voteCount! > 0 ? parseFloat((option.sumOfValues! / option.voteCount!).toFixed(2)) : 0; }
+      const dataUrl = canvas.toDataURL('image/png');
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], 'resultados-encuesta.png', { type: 'image/png' });
+      
+      // Texto genérico porque puede haber múltiples ganadores
+      const shareData = {
+        title: `Resultados de: ${poll.titulo}`,
+        text:  `🏆 ¡Consulta los resultados de la encuesta!`,
+        files: [file],
+      };
+      Swal.close();
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share(shareData);
+      } else {
+        const link = document.createElement('a');
+        link.download = 'resultados-encuesta.png';
+        link.href = dataUrl;
+        link.click();
+        Swal.fire('Descargado', 'Imagen de resultados guardada.', 'success');
+      }
+    } catch (err) {
+      console.error('Error generando imagen:', err);
+      Swal.fire('Error', 'No se pudo crear la imagen.', 'error');
+    } finally {
+      document.body.removeChild(clone);
+    }
+  }
+
+
+// 3. Reemplaza esta función
+  const handleShowResults = () => {
+    const loadAndShow = async () => {
+      if (!poll) return;
+      Swal.fire({ title: 'Generando resultados...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+      
+      const { id_encuesta: pollId, id_tipo_votacion } = poll;
+      const { data: qs, error: qe } = await supabase.from('preguntas_encuesta').select('id_pregunta, texto_pregunta, url_imagen').eq('id_encuesta', pollId).order('id_pregunta', { ascending: true });
+      if (qe || !qs) { Swal.fire('Error', 'No se pudieron cargar las preguntas.', 'error'); return; }
+
+      const questionIds = qs.map(q => q.id_pregunta);
+      const { data: opts, error: optsErr } = await supabase.from('opciones_pregunta').select('id_opcion, texto_opcion, url_imagen, id_pregunta').in('id_pregunta', questionIds);
+      if (optsErr || !opts) { Swal.fire('Error', 'No se pudieron cargar las opciones.', 'error'); return; }
+
+      const { data: votes, error: vErr } = await supabase.from('votos_respuestas').select('id_pregunta, id_opcion_seleccionada, valor_puntuacion, orden_ranking').in('id_pregunta', questionIds);
+      if (vErr) { Swal.fire('Error', 'No se pudieron cargar los votos.', 'error'); return; }
+      if (!votes || votes.length === 0) {
+        Swal.fire('Sin Votos', 'Aún no hay votos registrados para esta encuesta.', 'info');
+        return;
+      }
+
+      const results = new Map<number, ResultQuestionData>();
+      const optionMap = new Map(opts.map(o => [o.id_opcion, o.texto_opcion]));
+
+      qs.forEach(q => {
+        const questionOptions = opts
+          .filter(o => o.id_pregunta === q.id_pregunta)
+          .map(o => ({ name: o.texto_opcion, count: 0, url_imagen: o.url_imagen, voteCount: 0, sumOfValues: 0 }));
+
+        const questionVotes = votes.filter(v => v.id_pregunta === q.id_pregunta);
+        
+        questionVotes.forEach(v => {
+          const optionName = optionMap.get(v.id_opcion_seleccionada!);
+          const option = questionOptions.find(o => o.name === optionName);
+
+          if (option) {
+            if (id_tipo_votacion === 1 || id_tipo_votacion === 2) {
+              option.count++;
+            } else if (id_tipo_votacion === 3) {
+              option.sumOfValues! += v.valor_puntuacion!;
+              option.voteCount!++;
+            } else if (id_tipo_votacion === 4) {
+              option.sumOfValues! += v.orden_ranking!;
+              option.voteCount!++;
+            }
+          }
+        });
+        
+        if (id_tipo_votacion === 3 || id_tipo_votacion === 4) {
+          questionOptions.forEach(opt => {
+            opt.count = opt.voteCount! > 0 ? parseFloat((opt.sumOfValues! / opt.voteCount!).toFixed(2)) : 0;
+          });
+        }
+        
+        results.set(q.id_pregunta, {
+          id_pregunta: q.id_pregunta, texto_pregunta: q.texto_pregunta, options: questionOptions
+        });
+      });
+
+      results.forEach(questionData => {
+        if (id_tipo_votacion === 4) {
+          questionData.options.sort((a, b) => a.count - b.count);
+        } else {
+          questionData.options.sort((a, b) => b.count - a.count);
         }
       });
-    }
-
-    results.forEach(questionData => {
-      if (id_tipo_votacion === 4) { questionData.options.sort((a: any, b: any) => a.count - b.count); }
-      else { questionData.options.sort((a: any, b: any) => b.count - a.count); }
-    });
-    
-    const finalResults = Array.from(results.values());
-    setData(finalResults); // Todavía actualizamos el estado para la imagen
-
-    // Pasamos los resultados calculados directamente al modal
-    showWinnerModal(finalResults);
+      
+      const finalResults = Array.from(results.values());
+      setData(finalResults);
+      showWinnerModal(finalResults);
+    };
+    loadAndShow();
   };
-  loadAndShow();
-};
 
   const handleStatusChange = async () => {
     if (!poll || newStatus === poll.estado) return
@@ -463,35 +472,28 @@ const handleShowResults = () => {
             </div>
             <p className={styles.shareablePollTitle}>Encuesta: &quot;{poll.titulo}&quot;</p>
             
-                        {/* --- INICIO DE LA CORRECCIÓN --- */}
-            {/* Solo mostramos la sección del ganador si existe una primera opción */}
-            {data[0]?.options?.[0] && ( // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              <div className={styles.shareableWinner}>
-                <p>El ganador es:</p>
-                <h3>{data[0].options[0].name}</h3>
+            {data.map(questionData => (
+              <div key={questionData.id_pregunta} className={styles.shareableQuestionBlock}>
+                <h3 className={styles.shareableQuestionTitle}>{questionData.texto_pregunta}</h3>
+                {questionData.options.length > 0 && (
+                  <div className={styles.shareableWinner}>
+                    <p>El ganador es: <strong>{questionData.options[0].name}</strong></p>
+                  </div>
+                )}
+                <ol className={styles.shareableList}>
+                  {questionData.options.map((opt: ResultOption, index: number) => (
+                    <li key={index}>
+                      <span className={styles.shareableRank}>{index + 1}.</span>
+                      {opt.url_imagen && <img src={opt.url_imagen} alt={opt.name} className={styles.shareableImg} crossOrigin="anonymous" />}
+                      <span className={styles.shareableName}>{opt.name}</span>
+                      <span className={styles.shareableCount}>
+                        {poll.id_tipo_votacion < 3 ? `${opt.count} votos` : `${opt.count.toFixed(2)} pts`}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
               </div>
-            )}
-            <ol className={styles.shareableList}>
-            {/* Usamos optional chaining (?.) para evitar errores si 'options' no existe */ }
-              {data[0]?.options?.map((opt: any, index: number) => (
-                <li key={index}>
-                  <span className={styles.shareableRank}>{index + 1}.</span>
-                  {opt.url_imagen && (
-                    <img 
-                      src={opt.url_imagen} 
-                      alt={opt.name} 
-                      className={styles.shareableImg}
-                      crossOrigin="anonymous" 
-                    />
-                  )}
-                  <span className={styles.shareableName}>{opt.name}</span>
-                  <span className={styles.shareableCount}>
-                    {poll.id_tipo_votacion < 3 ? `${opt.count} votos` : `${opt.count.toFixed(2)} pts`}
-                  </span>
-                </li>
-              ))}
-            </ol>
-            {/* --- FIN DE LA CORRECCIÓN --- */}
+            ))}
         </div>
       )}
     </div>

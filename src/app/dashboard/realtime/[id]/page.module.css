@@ -578,3 +578,61 @@
   font-weight: 500;
   color: #4a5568;
 }
+
+/* Estilos para la Modal de Resultados Mejorada */
+.questionResultBlock {
+  margin-top: 20px;
+  text-align: left;
+}
+
+.questionResultTitle {
+  font-size: 1.1em;
+  color: #333;
+  border-bottom: 2px solid #eee;
+  padding-bottom: 5px;
+  margin-bottom: 10px;
+}
+
+.winnerNameSmall {
+  font-weight: bold;
+  color: #007bff;
+}
+
+.questionSeparator {
+  border: none;
+  border-top: 1px dashed #ccc;
+  margin: 25px 0;
+}
+
+/* Estilos para la Imagen Compartible Mejorada */
+.shareableQuestionBlock {
+  margin-top: 20px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 15px;
+  background-color: #fcfcfc;
+}
+
+.shareableQuestionTitle {
+  font-size: 1.3em;
+  text-align: center;
+  margin-bottom: 10px;
+  color: #1a1a1a;
+}
+
+.shareableImg {
+  width: 30px;
+  height: 30px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+/* Ajuste al li de la lista compartible para alinear items con imagen */
+.shareableList li {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+

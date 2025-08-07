@@ -39,7 +39,23 @@
   margin-bottom: 2.5rem;
 }
 
-/* === BLOQUE DE PREGUNTA === */
+.info {
+  font-size: 18px;
+  color: #3498db; /* Color azul */
+  text-align: center;
+  padding: 20px;
+  font-weight: bold;
+  animation: pulse 1.5s infinite;
+}
+.error {
+  text-align: center;
+  color: #dc3545;
+  font-weight: bold;
+  font-size: 1.1em;
+  margin-top: 20px;
+}
+
+
 .questionBlock {
   margin-bottom: 2rem;
   border: none;
