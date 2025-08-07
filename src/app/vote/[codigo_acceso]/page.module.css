@@ -1,27 +1,42 @@
-.container {
-  max-width: 700px;
-  margin: 20px auto;
-  padding: 30px;
-  background-color: #ffffff;
-  border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+/* Importar la fuente "Inter" */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* === FONDO Y CONTENEDOR PRINCIPAL === */
+.pageWrapper {
+  background-color: #f9fafb; /* Fondo gris muy claro */
   font-family: 'Inter', sans-serif;
-  color: #333;
+  padding: 1.5rem;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
+.container {
+  width: 100%;
+  max-width: 500px; /* Ancho ideal para una columna */
+  margin: 0 auto;
+  padding: 1.5rem;
+  background-color: #ffffff;
+  border-radius: 24px; /* Bordes más redondeados */
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+}
+
+/* === TÍTULOS Y DESCRIPCIÓN === */
 .title {
-  font-size: 2.2em;
-  color: #2c3e50;
-  margin-bottom: 15px;
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: #1f2937;
   text-align: center;
+  margin-bottom: 0.5rem;
 }
 
 .description {
-  font-size: 1.1em;
-  color: #555;
-  margin-bottom: 30px;
-  line-height: 1.6;
+  font-size: 1rem;
+  color: #4b5563;
   text-align: center;
+  line-height: 1.6;
+  margin-bottom: 2.5rem;
 }
 
 .info {
@@ -40,201 +55,109 @@
   margin-top: 20px;
 }
 
+
 .questionBlock {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 30px;
-  background-color: #fdfdfd;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  margin-bottom: 2rem;
+  border: none;
+  padding: 0;
+  margin-bottom: 1.5rem;
 }
-
 .questionBlock legend {
-  font-size: 1.4em;
-  font-weight: bold;
-  color: #34495e;
-  padding: 0 10px;
-  margin-left: -10px;
-  margin-bottom: 15px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #e42de4;
+  width: 100%;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid #e42de4; /* Agrega una línea debajo del texto */
+  padding-bottom: 0.5rem; /* Agrega un espacio entre el texto y la línea */
 }
-
-.questionImg {
-  max-width: 60%; /* Ajustado para ser un poco más grande que en la vista previa */
-  height: auto;
-  display: block;
-  margin: 15px auto 20px auto;
-  border-radius: 8px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
+/* === LISTA DE OPCIONES EN CASCADA === */
 .optionList {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: 1fr; /* 1 columna siempre (cascada) */
+  gap: 1rem;
 }
 
 .optionItem {
+  display: block;
+  position: relative;
+  cursor: pointer;
+}
+
+/* Ocultamos el input de radio/checkbox real */
+.radioInput, .checkboxInput {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* La tarjeta de la opción (la parte visible) */
+.optionLabel {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 15px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background-color: #f9f9f9;
-  cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid #ddcee4; /* Borde sutil por defecto */
+  border-radius: 16px;
+  background-color: #ffffff;
+  color: #374151;
+  font-size: 1.125rem;
+  font-weight: 600;
+  transition: all 0.2s ease-in-out;
 }
 
-.optionItem:hover {
-  background-color: #f0f0f0;
-  border-color: #c0c0c0;
+/* Efecto al pasar el ratón */
+.optionItem:hover .optionLabel {
+  transform: translateY(-3px);
+  color: #000000;
+  background-color: #ffffff;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.07);
+  border-color: #1ae0b5; /* Borde índigo claro */
 }
 
-.optionItem input[type="radio"],
-.optionItem input[type="checkbox"] {
-  accent-color: #007bff;
-  transform: scale(1.1);
-  flex-shrink: 0;
+/* Estilo para la opción SELECCIONADA */
+.radioInput:checked + .optionLabel,
+.checkboxInput:checked + .optionLabel {
+  background-color: #de7df7; /* Fondo índigo muy claro */
+  border-color: #c963f1; /* ¡El borde bonito y vibrante! */
+  color: #0800ff;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3); /* Efecto de "brillo" */
 }
+
 
 .optionImg {
-  width: 50px; /* Tamaño fijo para las imágenes de opciones */
-  height: 50px;
+  width: 72px;
+  height: 72px;
   object-fit: cover;
-  border-radius: 4px;
-  flex-shrink: 0;
+  border-radius: 50%; /* Imágenes circulares */
+  border: 2px solid white;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  flex-shrink: 0; /* Evita que la imagen se encoja */
 }
 
-.optionLabel {
-  font-size: 1.1em;
-  color: #333;
-  flex-grow: 1;
-}
-
-/* Estilos para la sección de puntuación */
-.scoreSection {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 15px;
-  margin-top: 15px;
-}
-
-.scoreLabel {
-  font-size: 1.1em;
-  font-weight: bold;
-  color: #333;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.inputNumber {
-  width: 80px;
-  padding: 8px;
-  border: 1px solid #ced4da;
-  border-radius: 6px;
-  font-size: 1em;
-  text-align: center;
-  -moz-appearance: textfield; /* Para Firefox */
-}
-
-/* Ocultar flechas en inputs tipo number para Chrome, Safari, Edge, Opera */
-.inputNumber::-webkit-outer-spin-button,
-.inputNumber::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-.scoreOptionsList {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
-    margin-top: 10px;
-}
-
-.scoreOptionItem {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-    text-align: center;
-    font-size: 0.9em;
-    color: #666;
-}
-
-.scoreOptionLabel {
-    font-weight: normal;
-}
-
-/* Estilos para la sección de ranking */
-.rankingSection {
-  margin-top: 15px;
-}
-
-.rankingInstructions {
-  font-size: 0.95em;
-  color: #777;
-  text-align: center;
-  margin-bottom: 15px;
-}
-
-.rankingItem {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 15px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background-color: #f9f9f9;
-  margin-bottom: 10px;
-}
-
-.rankingOptionLabel {
-  font-size: 1.1em;
-  color: #333;
-  flex-grow: 1;
-}
-
+/* === BOTÓN DE ENVIAR === */
 .submitBtn {
   width: 100%;
-  padding: 15px 25px;
-  background-color: #007bff;
+  padding: 1rem;
+  background-image: linear-gradient(to right, #6366f1, #8b5cf6); /* Gradiente */
   color: white;
   border: none;
-  border-radius: 8px;
-  font-size: 1.1em;
-  font-weight: bold;
+  border-radius: 16px;
+  font-size: 1.125rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: background-color 0.3s ease;
-  margin-top: 30px;
+  box-shadow: 0 5px 15px rgba(99, 102, 241, 0.3);
+  transition: all 0.2s ease-in-out;
+  margin-top: 2rem;
 }
-
 .submitBtn:hover:not(:disabled) {
-  background-color: #0056b3;
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+  transform: translateY(-2px);
 }
-
 .submitBtn:disabled {
-  background-color: #a0c4ff;
+  background: #a5b4fc;
   cursor: not-allowed;
-}
-
-.backButton {
-  background-color: #6c757d;
-  color: white;
-  border: none;
-  padding: 10px 15px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 0.9em;
-  transition: background-color 0.3s ease;
-  margin-top: 20px;
-  display: block; /* Para que ocupe su propia línea y margin-top funcione */
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.backButton:hover {
-  background-color: #5a6268;
+  box-shadow: none;
 }
