@@ -239,7 +239,7 @@ export default function VotePage() {
     return (
       <div className={styles.container}>
         <h1 className={styles.title}>{poll?.titulo}</h1>
-        <p className={styles.info}>Ya has votado en esta encuesta. ¡Gracias!</p>
+        <p className={styles.info1}>Ya has votado en esta encuesta. ¡Gracias!</p>
       </div>
     )
   }
