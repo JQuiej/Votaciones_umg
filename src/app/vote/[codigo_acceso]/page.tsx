@@ -265,80 +265,102 @@ export default function VotePage() {
             <Image src={q.url_imagen} alt={q.texto_pregunta} width={200} height={150} className={styles.questionImg} style={{ objectFit: 'contain' }} />
           )}
 
-          {poll.id_tipo_votacion === 1 && (
-            <div className={styles.optionList}>
-              {q.opciones.map(o => (
-                <label key={o.id_opcion} className={styles.optionItem}>
-                  <input type="radio" name={`q_${q.id_pregunta}`} checked={singleResp[q.id_pregunta] === o.id_opcion} onChange={() => handleSingleChange(q.id_pregunta, o.id_opcion)} className={styles.radioInput} />
-                  {o.url_imagen && <Image src={o.url_imagen} alt={o.texto_opcion} width={40} height={40} className={styles.optionImg} />}
-                  <span className={styles.optionLabel}>{o.texto_opcion}</span>
-                </label>
-              ))}
-            </div>
-          )}
+        {poll.id_tipo_votacion === 1 && (
+  <div className={styles.optionList}>
+    {q.opciones.map(o => (
+      // El <label> envuelve todo para que la tarjeta completa sea clickeable
+      <label key={o.id_opcion} className={styles.optionItem}>
+        
+        {/* 1. El input de radio va primero, pero estará oculto por el CSS */}
+        <input 
+          type="radio" 
+          name={`q_${q.id_pregunta}`} 
+          checked={singleResp[q.id_pregunta] === o.id_opcion} 
+          onChange={() => handleSingleChange(q.id_pregunta, o.id_opcion)} 
+          className={styles.radioInput} 
+        />
 
+        {/* 2. Esta es la parte VISIBLE que se estiliza como una tarjeta */}
+        <div className={styles.optionLabel}>
+          {o.url_imagen && <Image src={o.url_imagen} alt={o.texto_opcion} width={48} height={48} className={styles.optionImg} />}
+          <span>{o.texto_opcion}</span>
+        </div>
+
+      </label>
+    ))}
+  </div>
+)}
           {poll.id_tipo_votacion === 2 && (
-            <div className={styles.optionList}>
-              {q.opciones.map(o => (
-                <label key={o.id_opcion} className={styles.optionItem}>
-                  <input type="checkbox" checked={multiResp[q.id_pregunta]?.has(o.id_opcion)} onChange={() => handleMultiChange(q.id_pregunta, o.id_opcion)} className={styles.checkboxInput} />
-                  {o.url_imagen && <Image src={o.url_imagen} alt={o.texto_opcion} width={40} height={40} className={styles.optionImg} />}
-                  <span className={styles.optionLabel}>{o.texto_opcion}</span>
-                </label>
-              ))}
-            </div>
-          )}
-
+  <div className={styles.optionList}>
+    {q.opciones.map(o => (
+      <label key={o.id_opcion} className={styles.optionItem}>
+        {/* El input va primero, pero oculto */}
+        <input 
+          type="checkbox" 
+          checked={multiResp[q.id_pregunta]?.has(o.id_opcion)} 
+          onChange={() => handleMultiChange(q.id_pregunta, o.id_opcion)} 
+          className={styles.checkboxInput} 
+        />
+        {/* Esta es la parte visible que estilizamos como un botón */}
+        <div className={styles.optionLabel}>
+          {o.url_imagen && <Image src={o.url_imagen} alt={o.texto_opcion} width={48} height={48} className={styles.optionImg} />}
+          <span>{o.texto_opcion}</span>
+        </div>
+      </label>
+    ))}
+  </div>
+)}
           {poll.id_tipo_votacion === 3 && (
-            <div className={styles.scoringGrid}>
-              <p className={styles.rankingInstructions}>Califica cada opción del 1 al 10.</p>
-              {q.opciones.map(o => {
-                const currentScore = scoreResp[q.id_pregunta]?.[o.id_opcion] || 0;
-                return (
-                  <div key={o.id_opcion} className={styles.scoringItem}>
-                    <label htmlFor={`score_${o.id_opcion}`} className={styles.scoringOptionLabel}>
-                      {o.url_imagen && <Image src={o.url_imagen} alt={o.texto_opcion} width={40} height={40} className={styles.optionImg} />}
-                      <span>{o.texto_opcion}</span>
-                    </label>
-                    <div className={styles.sliderGroup}>
-                      <input
-                        type="range"
-                        id={`score_${o.id_opcion}`}
-                        min={1}
-                        max={10}
-                        step={1}
-                        value={currentScore}
-                        onChange={e =>
-                          handleScoreChange(
-                            q.id_pregunta,
-                            o.id_opcion,
-                            parseInt(e.target.value, 10)
-                          )
-                        }
-                        className={styles.sliderInput}
-                      />
-                      <span className={styles.sliderValue}>
-                        {currentScore > 0 ? currentScore : '-'}
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+  <div className={styles.scoringGrid}>
+    <p className={styles.rankingInstructions}>Califica cada opción del 1 al 10.</p>
+    {q.opciones.map(o => {
+      const currentScore = scoreResp[q.id_pregunta]?.[o.id_opcion] || 0;
+      return (
+        <div key={o.id_opcion} className={styles.scoringItem}>
+          <label htmlFor={`score_${o.id_opcion}`} className={styles.scoringOptionLabel}>
+            {o.url_imagen && <Image src={o.url_imagen} alt={o.texto_opcion} width={48} height={48} className={styles.optionImg} />}
+            <span>{o.texto_opcion}</span>
+          </label>
+          <div className={styles.sliderGroup}>
+            <input
+              type="range"
+              id={`score_${o.id_opcion}`}
+              min={1}
+              max={10}
+              step={1}
+              value={currentScore}
+              onChange={e => handleScoreChange(q.id_pregunta, o.id_opcion, parseInt(e.target.value, 10))}
+              className={styles.sliderInput}
+            />
+            <span className={styles.sliderValue}>
+              {currentScore > 0 ? currentScore : '-'}
+            </span>
+          </div>
+        </div>
+      )
+    })}
+  </div>
+)}
 
           {poll.id_tipo_votacion === 4 && (
-            <div className={styles.rankingSection}>
-              <p className={styles.rankingInstructions}>Asigna un número del 1 al {q.opciones.length} (1 para el primero, etc.)</p>
-              {q.opciones.map(o => (
-                <div key={o.id_opcion} className={styles.rankingItem}>
-                  {o.url_imagen && <Image src={o.url_imagen} alt={o.texto_opcion} width={40} height={40} className={styles.optionImg} />}
-                  <span className={styles.rankingOptionLabel}>{o.texto_opcion}</span>
-                  <input type="number" min={1} max={q.opciones.length} value={rankResp[q.id_pregunta]?.[o.id_opcion] || ''} onChange={e => handleRankChange(q.id_pregunta, o.id_opcion, e.target.value === '' ? 0 : parseInt(e.target.value, 10))} className={styles.inputNumber} />
-                </div>
-              ))}
-            </div>
-          )}
+  <div className={styles.rankingSection}>
+    <p className={styles.rankingInstructions}>Asigna un número del 1 al {q.opciones.length} (1 para el primero, etc.)</p>
+    {q.opciones.map(o => (
+      <div key={o.id_opcion} className={styles.rankingItem}>
+        {o.url_imagen && <Image src={o.url_imagen} alt={o.texto_opcion} width={48} height={48} className={styles.optionImg} />}
+        <span className={styles.rankingOptionLabel}>{o.texto_opcion}</span>
+        <input 
+          type="number" 
+          min={1} 
+          max={q.opciones.length} 
+          value={rankResp[q.id_pregunta]?.[o.id_opcion] || ''} 
+          onChange={e => handleRankChange(q.id_pregunta, o.id_opcion, e.target.value === '' ? 0 : parseInt(e.target.value, 10))} 
+          className={styles.inputNumber} 
+        />
+      </div>
+    ))}
+  </div>
+)}
         </fieldset>
       ))}
       

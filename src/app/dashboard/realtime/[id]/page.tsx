@@ -361,7 +361,7 @@ export default function RealtimePollResultsPage() {
       {showConfetti && <Confetti
         width={typeof window !== 'undefined' ? window.innerWidth : 0}
         height={typeof window !== 'undefined' ? window.innerHeight : 0}
-        style={{ zIndex: 9999 }}
+       className={styles.confettiCanvas}
       />}
 
       <div className={styles.header}>
