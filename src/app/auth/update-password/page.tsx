@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Importamos useEffect
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '../../../lib/supabaseClient'; // Asegúrate que la ruta sea correcta
@@ -12,11 +12,39 @@ export default function UpdatePasswordPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  // NUEVO: Estado para saber si el usuario tiene una sesión de recuperación válida
+  const [isRecoverySession, setIsRecoverySession] = useState(false);
+
+  // --- INICIO DE LA CORRECCIÓN ---
+  // NUEVO: useEffect para manejar el evento de recuperación de contraseña.
+  useEffect(() => {
+    // onAuthStateChange se dispara cuando el usuario llega a esta página
+    // desde el enlace del email, porque la URL contiene el token.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        // Este evento confirma que el usuario ha llegado desde un enlace válido.
+        // Supabase ha establecido una sesión temporal.
+        setIsRecoverySession(true);
+      }
+    });
+
+    // Es muy importante cancelar la suscripción cuando el componente se desmonte
+    // para evitar fugas de memoria.
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+  // --- FIN DE LA CORRECCIÓN ---
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 1. Validación: Comprobar que las contraseñas no estén vacías y coincidan.
+    // Verificación adicional: el formulario solo debe funcionar si hay una sesión de recuperación.
+    if (!isRecoverySession) {
+        Swal.fire('Token no válido', 'Para restablecer tu contraseña, por favor usa el enlace enviado a tu correo electrónico.', 'error');
+        return;
+    }
+
     if (!password || !confirmPassword) {
       Swal.fire('Campos incompletos', 'Por favor, introduce y confirma tu nueva contraseña.', 'warning');
       return;
@@ -32,7 +60,7 @@ export default function UpdatePasswordPage() {
 
     setLoading(true);
 
-    // 2. Llamada a Supabase para actualizar la contraseña del usuario logueado.
+    // Ahora esta llamada funcionará porque el useEffect ya estableció la sesión temporal.
     const { error } = await supabase.auth.updateUser({
       password: password
     });
@@ -40,22 +68,21 @@ export default function UpdatePasswordPage() {
     setLoading(false);
 
     if (error) {
-      // 3. Manejo de errores
       Swal.fire({
         icon: 'error',
         title: 'Error al actualizar',
-        text: error.message,
+        text: 'El enlace de recuperación puede haber expirado. Por favor, solicita uno nuevo.',
       });
     } else {
-      // 4. Mensaje de éxito y redirección
       await Swal.fire({
         icon: 'success',
         title: '¡Contraseña Actualizada!',
-        text: 'Tu contraseña ha sido cambiada exitosamente.',
-        timer: 2000,
+        text: 'Tu contraseña ha sido cambiada exitosamente. Ahora serás redirigido para iniciar sesión.',
+        timer: 3000,
         showConfirmButton: false,
       });
-      router.push('/dashboard/polls'); // Redirige al dashboard o a la página de perfil
+      // Es mejor redirigir a la página de login para que el usuario inicie sesión con su nueva contraseña.
+      router.push('/auth/login');
     }
   };
 
@@ -96,8 +123,8 @@ export default function UpdatePasswordPage() {
           </button>
         </form>
         <div className={styles.linksContainer}>
-          <Link href="/dashboard/polls" className={styles.link}>
-            Volver al Dashboard
+          <Link href="/auth/login" className={styles.link}>
+            Volver a Iniciar Sesión
           </Link>
         </div>
       </div>
