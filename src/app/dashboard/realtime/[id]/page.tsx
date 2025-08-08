@@ -220,7 +220,7 @@ const showWinnerModal = () => {
         <div class="${styles.questionResultBlock}">
           <h3 class="${styles.questionResultTitle}">${questionData.texto_pregunta}</h3>
           <p class="${styles.winnerTextSmall}">
-            <Crown size={18} /> Ganador: <strong class="${styles.winnerNameSmall}">${winner.name}</strong> 
+            <Crown size={18} /> 🏆 Ganador: <strong class="${styles.winnerNameSmall}">${winner.name}</strong> 
             con ${pollType === 1 || pollType === 2 ? `${winner.count} votos` : `${winner.count.toFixed(2)} pts`}
           </p>
           <ol class="${styles.resultsOl}">${resultsHtml}</ol>

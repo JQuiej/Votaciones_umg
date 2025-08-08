@@ -28,6 +28,7 @@
   /* Ajusta el texto secundario */
   .winnerText, .winnerTextSmall {
     font-size: 14px;
+    text-align: center; /* Alineamos al centro */
   }
 
   /* Ajusta la lista de resultados */
@@ -587,7 +588,8 @@
 
 .questionResultTitle {
   font-size: 1.1em;
-  color: #333;
+  color: #ffffff;
+  text-align: center;
   border-bottom: 2px solid #eee;
   padding-bottom: 5px;
   margin-bottom: 10px;
@@ -595,7 +597,8 @@
 
 .winnerNameSmall {
   font-weight: bold;
-  color: #007bff;
+  color: #ffffff;
+  text-align: center;
 }
 
 .questionSeparator {
