@@ -158,9 +158,61 @@
   padding: 0;
   border-radius: 50%;
 }
-
+.fileInput {
+  border-radius: 8px;
+    border-color: #7c3aed;
+  color: #ff3232;
+  font-size: auto;
+}
+.fileInput::file-selector-button {
+  margin-top: 5px;
+  /* Apariencia de botón secundario */
+  padding: 8px 14px;
+  margin-right: 1rem; /* Espacio entre el botón y el texto del archivo */
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb; /* color-border */
+  border-radius: 8px; /* border-radius-md */
+  border-color: #7c3aed;
+  font-family: 'Inter', sans-serif;
+  
+  font-weight: 400;
+  color: #a714d8; /* color-text-body */
+  
+  /* Interacción */
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+.fileInput::file-selector-button:hover {
+  background-color: #7c3aed;/* color-bg-hover */
+  border-color:#7c3aed; /* color-border-hover */
+  color: #ffffff; /* color-text-hover */
+}
 /* ... Tus otros estilos para botones de eliminar ... */
 
+/* Estilos para el contenedor de la opción */
+.optionItem {
+  display: flex; /* Activa Flexbox para alinear elementos fácilmente */
+  align-items: center; /* Centra verticalmente el radio, la imagen y el texto */
+  gap: 12px; /* Crea un espacio uniforme entre los elementos */
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  margin-bottom: 8px; /* Espacio entre opciones */
+}
+
+/* Efecto visual al pasar el mouse por encima */
+.optionItem:hover {
+  background-color: #f4f4f5;
+}
+
+/* Estilos específicos para la imagen */
+.optionImg {
+  border-radius: 50%; /* ¡La clave para hacer la imagen circular! */
+  object-fit: cover; /* Evita que la imagen se estire o se deforme */
+  border: 2px solid #e2e8f0; /* Añade un borde sutil */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* Agrega una sombra suave */
+}
 
 /* === LA MAGIA RESPONSIVA PARA ESCRITORIO === */
 /* Esta regla se aplica solo si la pantalla mide 768px o más */

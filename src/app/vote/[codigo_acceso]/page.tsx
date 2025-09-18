@@ -1,31 +1,33 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import FingerprintJS from '@fingerprintjs/fingerprintjs'
 import { supabase } from '../../../lib/supabaseClient'
 import Swal from 'sweetalert2'
 import styles from './page.module.css'
 import Image from 'next/image'
+import { User, Clock } from 'lucide-react'
 
 // Interfaces
 interface Poll {
-  id_encuesta:        number
-  titulo:             string
-  descripcion:        string | null
-  estado:             string
-  id_tipo_votacion: number
-}
-interface Opcion {
-  id_opcion:      number
-  texto_opcion:   string
-  url_imagen:     string | null
+    id_encuesta: number
+    titulo: string
+    descripcion: string | null
+    estado: string
+    tipo_votacion?: { nombre: string }
+    duracion_segundos: number | null
+    fecha_activacion: string | null
 }
 interface Pregunta {
   id_pregunta:    number
   texto_pregunta: string
   url_imagen:     string | null
-  opciones:       Opcion[]
+  opciones:       { id_opcion: number; texto_opcion: string; url_imagen: string | null }[]
+}
+interface JudgeInfo {
+    id_juez: number;
+    nombre_completo: string;
 }
 
 export default function VotePage() {
@@ -33,342 +35,272 @@ export default function VotePage() {
 
   const [poll, setPoll] = useState<Poll | null>(null)
   const [preguntas, setPreguntas] = useState<Pregunta[]>([])
+  const [judgeInfo, setJudgeInfo] = useState<JudgeInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [fingerprint, setFingerprint] = useState<string | null>(null)
   const [hasVoted, setHasVoted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
   const [singleResp, setSingleResp] = useState<Record<number, number>>({})
-  const [multiResp, setMultiResp] = useState<Record<number, Set<number>>>({})
-  const [scoreResp, setScoreResp] = useState<Record<number, Record<number, number>>>({})
-  const [rankResp, setRankResp] = useState<Record<number, Record<number, number>>>({})
+  const [projectScores, setProjectScores] = useState<Record<number, number>>({})
 
-  const handleSingleChange = (qId: number, oId: number) =>
-    setSingleResp(prev => ({ ...prev, [qId]: oId }))
-  const handleMultiChange = (qId: number, oId: number) => {
-    setMultiResp(prev => {
-      const newSet = new Set(prev[qId])
-      newSet.has(oId) ? newSet.delete(oId) : newSet.add(oId)
-      return { ...prev, [qId]: newSet }
-    })
-  }
-  const handleScoreChange = (qId: number, oId: number, val: number) =>
-    setScoreResp(prev => ({
-      ...prev,
-      [qId]: { ...prev[qId], [oId]: val }
-    }))
-  const handleRankChange = (qId: number, oId: number, val: number) =>
-    setRankResp(prev => ({
-      ...prev,
-      [qId]: { ...prev[qId], [oId]: val }
-    }))
+  const isProjectsPoll = poll?.tipo_votacion?.nombre === 'Proyectos';
+  const isCandidatesPoll = poll?.tipo_votacion?.nombre === 'Candidatas';
+
+  const handleSingleChange = (qId: number, oId: number) => setSingleResp(prev => ({ ...prev, [qId]: oId }));
+  const handleProjectScoreChange = (pId: number, val: number) => {
+    const score = Math.max(0, Math.min(10, val));
+    if (isNaN(score)) return;
+    setProjectScores(prev => ({ ...prev, [pId]: score }));
+  };
 
   useEffect(() => {
-    FingerprintJS.load()
-      .then(fp => fp.get())
-      .then(result => setFingerprint(result.visitorId))
-      .catch(() => setFingerprint(null))
-  }, [])
+    const initVoter = async () => {
+        if (!codigo_acceso) return;
+        const isJudge = codigo_acceso.startsWith('JUEZ-');
+        if (isJudge) {
+            await loadJudgeData();
+        } else {
+            const fp = await FingerprintJS.load();
+            const result = await fp.get();
+            setFingerprint(result.visitorId);
+            await loadPublicData(result.visitorId);
+        }
+    };
+    initVoter();
+  }, [codigo_acceso]);
 
-  useEffect(() => {
-    const loadPollData = async () => {
-      setLoading(true)
-      setError(null);
+      useEffect(() => {
+        if (!poll || !poll.duracion_segundos || !poll.fecha_activacion || poll.estado !== 'activa') {
+            setTimeLeft(null);
+            return;
+        }
 
-      if (!fingerprint) return;
+        const endTime = new Date(poll.fecha_activacion).getTime() + poll.duracion_segundos * 1000;
 
-      const { data: p, error: pe } = await supabase
-        .from('encuestas')
-        .select('id_encuesta,titulo,descripcion,estado,id_tipo_votacion')
-        .eq('codigo_acceso', codigo_acceso!)
-        .single()
-      if (pe || !p) {
-        setError('Enlace de encuesta inválido o no encontrado.')
-        setLoading(false)
-        return
-      }
+        const interval = setInterval(() => {
+            const now = Date.now();
+            const remaining = Math.round((endTime - now) / 1000);
 
-      if (p.estado !== 'activa') {
-        setPoll(p);
-        setError(`Esta encuesta no está disponible para votar. Estado: ${p.estado.toUpperCase()}`);
+            if (remaining <= 0) {
+                setTimeLeft(0);
+                clearInterval(interval);
+                // Opcional: mostrar una alerta de que el tiempo se acabó
+                Swal.fire({
+                    icon: 'info',
+                    title: '¡Tiempo terminado!',
+                    text: 'El período de votación para esta encuesta ha finalizado.',
+                    allowOutsideClick: false
+                });
+            } else {
+                setTimeLeft(remaining);
+            }
+        }, 1000);
+
+        return () => clearInterval(interval); // Limpieza al desmontar el componente
+    }, [poll]);
+
+  const loadJudgeData = async () => {
+    setLoading(true);
+    const { data: judgePollLink, error: judgeErr } = await supabase
+        .from('encuesta_jueces')
+        .select('id_encuesta, id_juez, jueces(nombre_completo)')
+        .eq('codigo_acceso_juez', codigo_acceso)
+        .single();
+
+    if (judgeErr || !judgePollLink || !judgePollLink.jueces) {
+        setError("Código de acceso de juez no válido o no encontrado.");
         setLoading(false);
         return;
-      }
-      setPoll(p)
-
-      const { data: exist } = await supabase
-        .from('votos')
-        .select('id_voto')
-        .eq('id_encuesta', p.id_encuesta)
-        .eq('huella_dispositivo', fingerprint)
-        .single()
-      if (exist) {
-        setHasVoted(true)
-        setLoading(false)
-        return
-      }
-
-      const { data: qs, error: qe } = await supabase
-        .from('preguntas_encuesta')
-        .select('id_pregunta,texto_pregunta,url_imagen')
-        .eq('id_encuesta', p.id_encuesta)
-        .order('id_pregunta', { ascending: true })
-      if (qe) { setError(qe.message); setLoading(false); return }
-
-      const cargadas: Pregunta[] = []
-      for (const q of qs || []) {
-        const { data: opts, error: oe } = await supabase
-          .from('opciones_pregunta')
-          .select('id_opcion,texto_opcion,url_imagen')
-          .eq('id_pregunta', q.id_pregunta)
-          .order('id_opcion', { ascending: true })
-        if (oe) { setError(oe.message); setLoading(false); return }
-        cargadas.push({ ...q, opciones: opts || [] })
-      }
-      setPreguntas(cargadas)
-
-      const sInit: Record<number, number> = {}
-      const mInit: Record<number, Set<number>> = {}
-      const scInit: Record<number, Record<number,number>> = {}
-      const rInit: Record<number, Record<number,number>> = {}
-      for (const q of cargadas) {
-        sInit[q.id_pregunta] = 0
-        mInit[q.id_pregunta] = new Set()
-        scInit[q.id_pregunta] = q.opciones.reduce((a,o)=>({ ...a, [o.id_opcion]: 0 }), {})
-        rInit[q.id_pregunta] = q.opciones.reduce((a,o)=>({ ...a, [o.id_opcion]: 0 }), {})
-      }
-      setSingleResp(sInit)
-      setMultiResp(mInit)
-      setScoreResp(scInit)
-      setRankResp(rInit)
-      
-      setLoading(false)
     }
-    loadPollData()
-  }, [codigo_acceso, fingerprint])
+    
+    const { id_encuesta, id_juez, jueces } = judgePollLink;
+    let judgeName = '';
+    if (jueces) {
+        if (Array.isArray(jueces) && jueces.length > 0) {
+            judgeName = jueces[0].nombre_completo;
+        } else if (typeof jueces === 'object' && !Array.isArray(jueces) && 'nombre_completo' in jueces) {
+            judgeName = (jueces as { nombre_completo: string }).nombre_completo;
+        }
+    }
+    if (!judgeName) {
+      setError("No se pudo obtener la información del juez.");
+      setLoading(false);
+      return;
+    }
+    setJudgeInfo({ id_juez, nombre_completo: judgeName });
+    await loadPollData(id_encuesta, { judgeId: id_juez });
+  };
+
+  const loadPublicData = async (fp: string) => {
+    setLoading(true);
+    const { data: p, error: pe } = await supabase.from('encuestas').select('id_encuesta').eq('codigo_acceso', codigo_acceso).single();
+    if (pe || !p) {
+        setError('Enlace de encuesta inválido o no encontrado.'); setLoading(false); return;
+    }
+    await loadPollData(p.id_encuesta, { fingerprint: fp });
+  };
+
+  const loadPollData = async (pollId: number, voter: { fingerprint?: string, judgeId?: number }) => {
+    const { data: p, error: pe } = await supabase
+            .from('encuestas').select('*, duracion_segundos, fecha_activacion, tipo_votacion:id_tipo_votacion (nombre)')
+            .eq('id_encuesta', pollId).single();
+    
+    if (pe || !p) { setError('No se pudo cargar la encuesta.'); setLoading(false); return; }
+    if (p.estado !== 'activa') { setPoll(p); setError(`Esta encuesta no está disponible. Estado: ${p.estado.toUpperCase()}`); setLoading(false); return; }
+    setPoll(p);
+
+    let voteCheckQuery;
+    if (voter.judgeId) {
+        voteCheckQuery = supabase.from('votos_respuestas').select('id_voto', { count: 'exact' }).eq('id_encuesta', pollId).eq('id_juez', voter.judgeId);
+    } else {
+        voteCheckQuery = supabase.from('votos').select('id_voto', { count: 'exact' }).eq('id_encuesta', pollId).eq('huella_dispositivo', voter.fingerprint!);
+    }
+    const { count: voteCount } = await voteCheckQuery;
+    if (voteCount && voteCount > 0) { setHasVoted(true); setLoading(false); return; }
+
+    const { data: qs, error: qe } = await supabase.from('preguntas_encuesta').select('*, opciones_pregunta(*)').eq('id_encuesta', p.id_encuesta).order('id_pregunta');
+    if (qe) { setError(qe.message); setLoading(false); return; }
+    
+    const loadedQuestions = qs.map(q => ({ ...q, opciones: q.opciones_pregunta || [] }));
+    setPreguntas(loadedQuestions);
+
+    if (p.tipo_votacion?.nombre === 'Proyectos') {
+        const initialScores: Record<number, number> = {};
+        loadedQuestions.forEach(q => { initialScores[q.id_pregunta] = 5.0; });
+        setProjectScores(initialScores);
+    }
+    setLoading(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!poll || !fingerprint || isSubmitting) return
-
+    e.preventDefault();
+    if (timeLeft === 0) {
+            Swal.fire({ icon: 'error', title: 'Tiempo Terminado', text: 'El tiempo para votar ha expirado.' });
+            return;
+        }
+    if (!poll || isSubmitting) return;
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const { data: voteRec, error: voteErr } = await supabase
-        .from('votos')
-        .insert({ id_encuesta: poll.id_encuesta, huella_dispositivo: fingerprint })
-        .select('id_voto')
-        .single()
-      if (voteErr || !voteRec) {
-        if (voteErr.code === '23505') {
-          setHasVoted(true);
-          throw new Error('Ya has votado en esta encuesta.');
-        }
-        throw voteErr;
-      }
-      const idVoto = voteRec.id_voto
+        const { data: currentPoll } = await supabase.from('encuestas').select('estado').eq('id_encuesta', poll.id_encuesta).single();
+        if (currentPoll?.estado !== 'activa') throw new Error("Esta encuesta ya no está activa.");
 
-      const respuestas: any[] = []
-      for (const q of preguntas) {
-        const qid = q.id_pregunta
-        if (poll.id_tipo_votacion === 1) {
-          const sel = singleResp[qid]
-          if (!sel) throw new Error(`Selecciona una opción en "${q.texto_pregunta}"`)
-          respuestas.push({ id_voto: idVoto, id_pregunta: qid, id_opcion_seleccionada: sel })
-        }
-        else if (poll.id_tipo_votacion === 2) {
-          const setSel = multiResp[qid]
-          if (setSel.size === 0) throw new Error(`Selecciona al menos una opción en "${q.texto_pregunta}"`)
-          for (const oid of setSel) {
-            respuestas.push({ id_voto: idVoto, id_pregunta: qid, id_opcion_seleccionada: oid })
-          }
-        }
-        else if (poll.id_tipo_votacion === 3) {
-          const scores = scoreResp[qid];
-          if (Object.values(scores).length !== q.opciones.length || Object.values(scores).some(s => s < 1 || s > 10)) {
-            throw new Error(`Debes calificar todas las opciones en "${q.texto_pregunta}" con un valor entre 1 y 10.`);
-          }
-          for (const [oid, score] of Object.entries(scores)) {
-            respuestas.push({ id_voto: idVoto, id_pregunta: qid, id_opcion_seleccionada: Number(oid), valor_puntuacion: score });
-          }
-        }
-        else if (poll.id_tipo_votacion === 4) {
-          const ranks = rankResp[qid]
-          const assignedRanks = Object.values(ranks).filter(r => r > 0);
-          if (new Set(assignedRanks).size !== assignedRanks.length) {
-            throw new Error(`Los rankings en "${q.texto_pregunta}" deben ser únicos y no pueden repetirse.`);
-          }
-          if (assignedRanks.length !== q.opciones.length) {
-            throw new Error(`Asigna un ranking a todas las opciones en "${q.texto_pregunta}".`);
-          }
-          for (const [oid, orden] of Object.entries(ranks)) {
-            if (orden > 0) {
-              respuestas.push({ id_voto: idVoto, id_pregunta: qid, id_opcion_seleccionada: Number(oid), orden_ranking: orden })
+        const respuestas: Omit<any, 'id_voto'>[] = [];
+        for (const q of preguntas) {
+            if (isCandidatesPoll) {
+                const sel = singleResp[q.id_pregunta];
+                if (!sel) throw new Error(`Debes seleccionar una opción en "${q.texto_pregunta}"`);
+                respuestas.push({ id_encuesta: poll.id_encuesta, id_pregunta: q.id_pregunta, id_opcion_seleccionada: sel, id_juez: judgeInfo?.id_juez ?? null });
+            } else if (isProjectsPoll) {
+                const score = projectScores[q.id_pregunta];
+                if (score === undefined) throw new Error(`Debes calificar el proyecto "${q.texto_pregunta}"`);
+                respuestas.push({ id_encuesta: poll.id_encuesta, id_pregunta: q.id_pregunta, valor_puntuacion: score, id_juez: judgeInfo?.id_juez ?? null });
             }
-          }
         }
-      }
 
-      if (respuestas.length === 0 && preguntas.length > 0) {
-        throw new Error("No has respondido ninguna pregunta.");
-      }
+        if (respuestas.length === 0) throw new Error("No has respondido ninguna pregunta.");
+        
+        if (!judgeInfo && fingerprint) {
+            const { error: voteErr } = await supabase.from('votos').insert({ id_encuesta: poll.id_encuesta, huella_dispositivo: fingerprint });
+            if (voteErr?.code === '23505') throw new Error('Ya has votado en esta encuesta.');
+            else if (voteErr) throw voteErr;
+        }
 
-      const { error: respErr } = await supabase
-        .from('votos_respuestas')
-        .insert(respuestas)
-      if (respErr) throw respErr
-
-      setHasVoted(true)
-      await Swal.fire({
-            icon: 'success',
-            title: '¡Voto Exitoso!',
-            text: 'Gracias por Votar',
-            confirmButtonText: 'Entendido'
-          });
+        await supabase.from('votos_respuestas').insert(respuestas).throwOnError();
+        
+        setHasVoted(true);
+        await Swal.fire({ icon: 'success', title: '¡Voto Exitoso!', text: 'Gracias por participar.' });
     } catch (err: any) {
-      setError(err.message);
+        setError(err.message);
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
     } finally {
-      setIsSubmitting(false);
+        setIsSubmitting(false);
     }
-  }
+  };
 
-  if (loading) return <p className={styles.info}>Cargando…</p>
-  if (hasVoted) {
-    return (
-      <div className={styles.container}>
-        <h1 className={styles.title}>{poll?.titulo}</h1>
-        <p className={styles.info1}>Ya has votado en esta encuesta. ¡Gracias!</p>
-      </div>
-    )
-  }
-  if (error) {
-    return (
-      <div className={styles.container}>
-        {poll && <h1 className={styles.title}>{poll.titulo}</h1>}
-        <p className={styles.error}>{error}</p>
-      </div>
-    );
-  }
-  if (!poll) return null
+  const formatTime = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+  if (loading) return <p className={styles.info}>Cargando Encuesta…</p>;
+  if (hasVoted) return (
+    <div className={styles.container}>
+      <h1 className={styles.title}>{poll?.titulo}</h1>
+      <p className={styles.info1}>Ya has votado en esta encuesta. ¡Gracias!</p>
+    </div>
+  );
+  if (error) return (
+    <div className={styles.container}>
+      {poll && <h1 className={styles.title}>{poll.titulo}</h1>}
+      <p className={styles.error}>{error}</p>
+    </div>
+  );
+  if (!poll) return null;
 
   return (
     <form onSubmit={handleSubmit} className={styles.container}>
+      {judgeInfo && (
+          <div className={styles.judgeWelcome}>
+              <User /> Votando como Juez: <strong>{judgeInfo.nombre_completo}</strong>
+          </div>
+      )}
+      {timeLeft !== null && (
+                <div className={styles.timer}>
+                    <Clock size={20} />
+                    <span>Tiempo restante: <strong>{formatTime(timeLeft)}</strong></span>
+                </div>
+            )}
       <h1 className={styles.title}>{poll.titulo}</h1>
       {poll.descripcion && <p className={styles.description}>{poll.descripcion}</p>}
-
+      
       {preguntas.map(q => (
         <fieldset key={q.id_pregunta} className={styles.questionBlock}>
           <legend>{q.texto_pregunta}</legend>
-          {q.url_imagen && (
-            <Image src={q.url_imagen} alt={q.texto_pregunta} width={200} height={150} className={styles.questionImg} style={{ objectFit: 'contain' }} />
+          {q.url_imagen && (<Image src={q.url_imagen} alt={q.texto_pregunta} width={200} height={150} className={styles.questionImg}/>)}
+
+          {isCandidatesPoll && (
+            <div className={styles.optionList}>
+              {q.opciones.map(o => (
+                <label key={o.id_opcion} className={styles.optionItem}>
+                  <input type="radio" name={`q_${q.id_pregunta}`} checked={singleResp[q.id_pregunta] === o.id_opcion} onChange={() => handleSingleChange(q.id_pregunta, o.id_opcion)} className={styles.radioInput} />
+                  <div className={styles.optionLabel}>
+                    {o.url_imagen && <Image src={o.url_imagen} alt={o.texto_opcion} width={48} height={48} className={styles.optionImg} />}
+                    <span>{o.texto_opcion}</span>
+                  </div>
+                </label>
+              ))}
+            </div>
           )}
-
-        {poll.id_tipo_votacion === 1 && (
-  <div className={styles.optionList}>
-    {q.opciones.map(o => (
-      // El <label> envuelve todo para que la tarjeta completa sea clickeable
-      <label key={o.id_opcion} className={styles.optionItem}>
-        
-        {/* 1. El input de radio va primero, pero estará oculto por el CSS */}
-        <input 
-          type="radio" 
-          name={`q_${q.id_pregunta}`} 
-          checked={singleResp[q.id_pregunta] === o.id_opcion} 
-          onChange={() => handleSingleChange(q.id_pregunta, o.id_opcion)} 
-          className={styles.radioInput} 
-        />
-
-        {/* 2. Esta es la parte VISIBLE que se estiliza como una tarjeta */}
-        <div className={styles.optionLabel}>
-          {o.url_imagen && <Image src={o.url_imagen} alt={o.texto_opcion} width={48} height={48} className={styles.optionImg} />}
-          <span>{o.texto_opcion}</span>
-        </div>
-
-      </label>
-    ))}
-  </div>
-)}
-          {poll.id_tipo_votacion === 2 && (
-  <div className={styles.optionList}>
-    {q.opciones.map(o => (
-      <label key={o.id_opcion} className={styles.optionItem}>
-        {/* El input va primero, pero oculto */}
-        <input 
-          type="checkbox" 
-          checked={multiResp[q.id_pregunta]?.has(o.id_opcion)} 
-          onChange={() => handleMultiChange(q.id_pregunta, o.id_opcion)} 
-          className={styles.checkboxInput} 
-        />
-        {/* Esta es la parte visible que estilizamos como un botón */}
-        <div className={styles.optionLabel}>
-          {o.url_imagen && <Image src={o.url_imagen} alt={o.texto_opcion} width={48} height={48} className={styles.optionImg} />}
-          <span>{o.texto_opcion}</span>
-        </div>
-      </label>
-    ))}
-  </div>
-)}
-          {poll.id_tipo_votacion === 3 && (
-  <div className={styles.scoringGrid}>
-    <p className={styles.rankingInstructions}>Califica cada opción del 1 al 10.</p>
-    {q.opciones.map(o => {
-      const currentScore = scoreResp[q.id_pregunta]?.[o.id_opcion] || 0;
-      return (
-        <div key={o.id_opcion} className={styles.scoringItem}>
-          <label htmlFor={`score_${o.id_opcion}`} className={styles.scoringOptionLabel}>
-            {o.url_imagen && <Image src={o.url_imagen} alt={o.texto_opcion} width={48} height={48} className={styles.optionImg} />}
-            <span>{o.texto_opcion}</span>
-          </label>
-          <div className={styles.sliderGroup}>
-            <input
-              type="range"
-              id={`score_${o.id_opcion}`}
-              min={1}
-              max={10}
-              step={1}
-              value={currentScore}
-              onChange={e => handleScoreChange(q.id_pregunta, o.id_opcion, parseInt(e.target.value, 10))}
-              className={styles.sliderInput}
-            />
-            <span className={styles.sliderValue}>
-              {currentScore > 0 ? currentScore : '-'}
-            </span>
-          </div>
-        </div>
-      )
-    })}
-  </div>
-)}
-
-          {poll.id_tipo_votacion === 4 && (
-  <div className={styles.rankingSection}>
-    <p className={styles.rankingInstructions}>Asigna un número del 1 al {q.opciones.length} (1 para el primero, etc.)</p>
-    {q.opciones.map(o => (
-      <div key={o.id_opcion} className={styles.rankingItem}>
-        {o.url_imagen && <Image src={o.url_imagen} alt={o.texto_opcion} width={48} height={48} className={styles.optionImg} />}
-        <span className={styles.rankingOptionLabel}>{o.texto_opcion}</span>
-        <input 
-          type="number" 
-          min={1} 
-          max={q.opciones.length} 
-          value={rankResp[q.id_pregunta]?.[o.id_opcion] || ''} 
-          onChange={e => handleRankChange(q.id_pregunta, o.id_opcion, e.target.value === '' ? 0 : parseInt(e.target.value, 10))} 
-          className={styles.inputNumber} 
-        />
-      </div>
-    ))}
-  </div>
-)}
+          
+          {isProjectsPoll && (
+            <div className={styles.scoringGrid}>
+                <div key={q.id_pregunta} className={styles.scoringItem}>
+                    <div className={styles.sliderGroup}>
+                        <span className={styles.sliderLimit}>0</span>
+                        <input type="range" id={`score_range_${q.id_pregunta}`} min={0} max={10} step={0.1} value={projectScores[q.id_pregunta] ?? 5} onChange={e => handleProjectScoreChange(q.id_pregunta, parseFloat(e.target.value))} className={styles.sliderInput} />
+                        <span className={styles.sliderLimit}>10</span>
+                    </div>
+                    <div className={styles.scoreInputGroup}>
+                        <label htmlFor={`score_input_${q.id_pregunta}`}>Puntuación Exacta:</label>
+                        <input type="number" id={`score_input_${q.id_pregunta}`} min={0} max={10} step={0.1} value={projectScores[q.id_pregunta] ?? ''} onChange={e => handleProjectScoreChange(q.id_pregunta, parseFloat(e.target.value))} className={styles.inputScore} />
+                    </div>
+                    <span className={styles.sliderValue}>Puntuación Final: <strong>{projectScores[q.id_pregunta]?.toFixed(1) ?? '5.0'}</strong></span>
+                </div>
+            </div>
+          )}
         </fieldset>
       ))}
       
       {error && <p className={styles.error}>{error}</p>}
-      
-      <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>
-        {isSubmitting ? 'Enviando voto...' : 'Votar'}
-      </button>
+      <button type="submit" className={styles.submitBtn} disabled={isSubmitting || timeLeft === 0}>
+                {timeLeft === 0 ? 'Tiempo Terminado' : (isSubmitting ? 'Enviando Voto...' : 'Enviar Voto')}
+            </button>
     </form>
   )
 }

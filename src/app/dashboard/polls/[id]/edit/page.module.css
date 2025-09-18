@@ -277,3 +277,109 @@
     align-items: center;
   }
 }
+
+/* --- Estilos para la Gestión de Jueces --- */
+.judgeManagementSection {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  background-color: #fafafa;
+}
+
+.assignedJudgesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.judgeCard {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background-color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  justify-content: space-between;
+}
+
+.judgeAvatar {
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.removeJudgeBtn {
+  background-color: transparent;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.removeJudgeBtn:hover {
+  background-color: #fee2e2;
+}
+
+.noJudgesText {
+  color: #64748b;
+  font-style: italic;
+}
+
+.addJudgeForm {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+/* --- Estilos para el Selector de Jueces --- */
+
+.select {
+  /* Apariencia y espaciado */
+  appearance: none; /* Elimina la flecha y estilos por defecto del navegador */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: #ffffff;
+  padding: 10px 36px 10px 12px; /* Espacio interior: derecha para la flecha, resto para el texto */
+  font-size: 1rem;
+  color: #334155;
+  border: 1px solid #cbd5e1; /* Borde sutil */
+  border-radius: 8px; /* Esquinas redondeadas */
+  
+  /* Flecha personalizada (SVG como fondo) */
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+  background-size: 1.2em;
+
+  /* Comportamiento y transiciones */
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Estado al pasar el mouse por encima */
+.select:hover {
+  border-color: #94a3b8;
+}
+
+/* Estado al hacer clic o navegar con el teclado */
+.select:focus {
+  outline: none;
+  border-color: #3b82f6; /* Color azul al estar activo */
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25); /* Anillo de enfoque sutil */
+}
+
+/* Para el contenedor del select y el botón */
+.addJudgeForm {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.addJudgeForm .select {
+  flex-grow: 1; /* Hace que el select ocupe todo el espacio disponible */
+}

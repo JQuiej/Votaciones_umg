@@ -45,6 +45,14 @@ interface Question {
   }[]
 }
 
+interface AssignedJudge {
+  id_juez: number;
+  nombre_completo: string;
+  url_imagen: string | null;
+  codigo_acceso_juez: string;
+  votingLink: string;
+}
+
 export default function PollDetailPage() {
   const router = useRouter()
   const { id } = useParams<{ id: string }>()
@@ -54,68 +62,108 @@ export default function PollDetailPage() {
   const [questions, setQuestions] = useState<Question[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [assignedJudges, setAssignedJudges] = useState<AssignedJudge[]>([]);
 
   const [newStatus, setNewStatus] = useState<string>('pendiente')
   const [saving, setSaving] = useState(false)
   const statusOptions = ['activa', 'finalizada', 'inactiva'] // Opciones de estado más comunes
-
+  
   useEffect(() => {
+    if (isNaN(pollId)) {
+      setError("ID de encuesta no válido.");
+      setLoading(false);
+      return;
+    }
+
     const fetchPollData = async () => {
-      setLoading(true)
-      const { data: { session } } = await supabase.auth.getSession()
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user.id) {
-        router.replace('/auth/login')
-        return
+        router.replace('/auth/login');
+        return;
       }
 
       const { data: pd, error: pe } = await supabase
         .from('encuestas')
         .select('id_encuesta,id_tipo_votacion,titulo,descripcion,estado,url_votacion,codigo_acceso')
         .eq('id_encuesta', pollId)
-        .single()
+        .single();
+
       if (pe || !pd) {
-        setError(pe?.message ?? 'Encuesta no encontrada')
-        setLoading(false)
-        return
+        setError(pe?.message ?? 'Encuesta no encontrada');
+        setLoading(false);
+        return;
       }
-      setPoll(pd)
-      setNewStatus(pd.estado)
+      setPoll(pd);
+      setNewStatus(pd.estado);
+
+      // Si la encuesta es de tipo "Proyectos" (ID 3), carga los jueces
+      if (pd.id_tipo_votacion === 4) {
+        const { data: judgesData, error: judgesError } = await supabase
+          .from('encuesta_jueces')
+          .select(`
+            codigo_acceso_juez,
+            jueces (id_juez, nombre_completo, url_imagen)
+          `)
+          .eq('id_encuesta', pollId);
+
+        if (judgesError) {
+          console.error("Error al cargar jueces:", judgesError.message);
+        } else if (judgesData) {
+          const judgesWithLinks = judgesData.map((item: any) => {
+            const judge = item.jueces;
+            const votingLink = `${window.location.origin}/vote/${item.codigo_acceso_juez}`;
+            return {
+              id_juez: judge.id_juez,
+              nombre_completo: judge.nombre_completo,
+              url_imagen: judge.url_imagen,
+              codigo_acceso_juez: item.codigo_acceso_juez,
+              votingLink: votingLink,
+            };
+          });
+          setAssignedJudges(judgesWithLinks);
+        }
+      }
 
       const { data: qs, error: qe } = await supabase
         .from('preguntas_encuesta')
         .select('id_pregunta,texto_pregunta,url_imagen')
         .eq('id_encuesta', pollId)
-        .order('id_pregunta', { ascending: true })
+        .order('id_pregunta', { ascending: true });
+
       if (qe) {
-        setError(qe.message); setLoading(false); return
+        setError(qe.message); setLoading(false); return;
       }
 
-      const loaded: Question[] = []
+      const loaded: Question[] = [];
       for (const q of qs || []) {
         const { data: opts, error: oe } = await supabase
           .from('opciones_pregunta')
           .select('id_opcion,texto_opcion,url_imagen')
           .eq('id_pregunta', q.id_pregunta)
-          .order('id_opcion', { ascending: true })
+          .order('id_opcion', { ascending: true });
+
         if (oe) {
-          setError(oe.message); setLoading(false); return
+          setError(oe.message); setLoading(false); return;
         }
-        loaded.push({ ...q, opciones: opts || [] })
+        loaded.push({ ...q, opciones: opts || [] });
       }
-      setQuestions(loaded)
-      setLoading(false)
-    }
-    fetchPollData()
-  }, [pollId, router])
+      setQuestions(loaded);
+      setLoading(false);
+    };
+    
+    fetchPollData();
+  }, [pollId]);
 
   const [data, setData] = useState<any[]>([]); // Para guardar los resultados de los votos
   const shareableResultRef = useRef<HTMLDivElement>(null); // Para la imagen a compartir
 
   // Después de tu useEffect y antes de handleStatusChange
 // 1. Reemplaza esta función
-  const showWinnerModal = (processedData: ResultQuestionData[]) => {
+// Reemplaza tu función showWinnerModal con esta:
+const showWinnerModal = (processedData: ResultQuestionData[]) => {
     if (!processedData || processedData.length === 0 || !poll) return;
-    const pollType = poll.id_tipo_votacion;
+    const isProjectPoll = poll.id_tipo_votacion === 4;
 
     const resultsByQuestionHtml = processedData.map(questionData => {
       const winner = questionData.options[0];
@@ -126,192 +174,193 @@ export default function PollDetailPage() {
           <span class="${styles.rankNumber}">${index + 1}.</span>
           ${opt.url_imagen ? `<img src="${opt.url_imagen}" alt="${opt.name}" class="${styles.resultsImg}" />` : ''}
           <span class="${styles.resultsName}">${opt.name}</span>
-          <span class="${styles.resultsCount}">${pollType < 3 ? `${opt.count} votos` : `${opt.count.toFixed(2)} pts`}</span>
+          <span class="${styles.resultsCount}">
+            ${isProjectPoll ? `${opt.count.toFixed(2)} pts` : `${opt.count} votos`}
+          </span>
         </li>`).join('');
 
       return `
         <div class="${styles.questionResultBlock}">
-          <h3 class="${styles.questionResultTitle}">${questionData.texto_pregunta}</h3>
-          <p class="${styles.winnerTextSmall}">
-            🏆 Ganador: <strong class="${styles.winnerNameSmall}">${winner.name}</strong> 
-            con ${pollType < 3 ? `${winner.count} votos` : `${winner.count.toFixed(2)} pts`}
-          </p>
+          <h3 class="${styles.questionResultTitle}">${isProjectPoll ? "Ranking de Proyectos" : questionData.texto_pregunta}</h3>
           <ol class="${styles.resultsOl}">${resultsHtml}</ol>
         </div>
       `;
     }).join(`<hr class="${styles.questionSeparator}" />`);
 
     Swal.fire({
-      title: `<span class="${styles.winnerTitle}"><Crown size={28} /> ¡Resultados Finales! <Crown size={28} /></span>`,
+      title: `<span class="${styles.winnerTitle}"> ¡Resultados Finales! </span>`,
       html: `<p class="${styles.pollTitleModal}">Encuesta: "${poll.titulo}"</p>${resultsByQuestionHtml}`,
       confirmButtonText: 'Compartir Resultados como Imagen',
       showCloseButton: true,
       width: '600px',
-    }).then((result) => { 
-      if (result.isConfirmed) { 
-        handleShareResults(processedData); 
-      } 
-    });
-  };
+      }).then((result) => { if (result.isConfirmed) { handleShareResults(); } });
+};
 
-  const handleShareResults = async (processedData: ResultQuestionData[]) => {
-    const original = shareableResultRef.current!;
-    if (!original || !poll) {
-      Swal.fire('Error', 'No se encontró el elemento para la imagen.', 'error');
-      return;
-    }
-
-    const clone = original.cloneNode(true) as HTMLElement;
-    clone.classList.add(styles.shareableResultsVisible);
-
-    const { width, height } = original.getBoundingClientRect();
-    Object.assign(clone.style, {
-      position: 'absolute', top: '-9999px', left: '0px', display: 'block', visibility: 'visible',
-      opacity: '1', width: `${width}px`, height: `${height}px`, background: '#ffffff',
-    });
-
-    document.body.appendChild(clone);
-
-    try {
-      const imgs = Array.from(clone.querySelectorAll('img'));
-      await Promise.all(imgs.map(async img => {
-        if (img.src && !img.src.startsWith('data:')) {
-          try {
-            const res  = await fetch(img.src);
-            const blob = await res.blob();
-            img.src = await new Promise<string>(resolve => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.readAsDataURL(blob);
-            });
-          } catch (e) { console.error("Error fetching image for canvas: ", e); }
+// REEMPLAZA TU FUNCIÓN handleShareResults CON ESTA:
+const handleShareResults = async () => {
+        const elementToCapture = shareableResultRef.current;
+        if (!elementToCapture) {
+            Swal.fire('Error', 'No se pudo generar la imagen.', 'error');
+            return;
         }
-      }));
+        
+        Swal.fire({ title: 'Generando imagen...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-      await new Promise(r => setTimeout(r, 100));
-      const canvas = await html2canvas(clone, {
-        useCORS: true, backgroundColor: '#ffffff', scale: 2.5, width, height,
-      });
-      const dataUrl = canvas.toDataURL('image/png');
-      const blob = await (await fetch(dataUrl)).blob();
-      const file = new File([blob], 'resultados-encuesta.png', { type: 'image/png' });
-      
-      // Texto genérico porque puede haber múltiples ganadores
-      const shareData = {
-        title: `Resultados de: ${poll.titulo}`,
-        text:  `🏆 ¡Consulta los resultados de la encuesta!`,
-        files: [file],
-      };
-      Swal.close();
-
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share(shareData);
-      } else {
-        const link = document.createElement('a');
-        link.download = 'resultados-encuesta.png';
-        link.href = dataUrl;
-        link.click();
-        Swal.fire('Descargado', 'Imagen de resultados guardada.', 'success');
-      }
-    } catch (err) {
-      console.error('Error generando imagen:', err);
-      Swal.fire('Error', 'No se pudo crear la imagen.', 'error');
-    } finally {
-      document.body.removeChild(clone);
-    }
-  }
-
+        try {
+            const canvas = await html2canvas(elementToCapture, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+            const dataUrl = canvas.toDataURL('image/png');
+            const blob = await (await fetch(dataUrl)).blob();
+            const file = new File([blob], 'resultados-encuesta.png', { type: 'image/png' });
+            
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    title: `Resultados de: ${poll!.titulo}`,
+                    text:  ` ¡Consulta los resultados de la encuesta!`,
+                    files: [file],
+                });
+                Swal.close();
+            } else {
+                const link = document.createElement('a');
+                link.download = 'resultados-encuesta.png';
+                link.href = dataUrl;
+                link.click();
+                Swal.fire('Descargado', 'Imagen de resultados guardada.', 'success');
+            }
+        } catch (err) {
+            console.error('Error al generar la imagen:', err);
+            Swal.fire('Error', 'No se pudo crear la imagen para compartir.', 'error');
+        }
+    };
 
 // 3. Reemplaza esta función
-  const handleShowResults = () => {
-    const loadAndShow = async () => {
-      if (!poll) return;
-      Swal.fire({ title: 'Generando resultados...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-      
-      const { id_encuesta: pollId, id_tipo_votacion } = poll;
-      const { data: qs, error: qe } = await supabase.from('preguntas_encuesta').select('id_pregunta, texto_pregunta, url_imagen').eq('id_encuesta', pollId).order('id_pregunta', { ascending: true });
-      if (qe || !qs) { Swal.fire('Error', 'No se pudieron cargar las preguntas.', 'error'); return; }
+// Reemplaza tu función handleShowResults con esta:
+const handleShowResults = () => {
+  const loadAndShow = async () => {
+    if (!poll) return;
+    Swal.fire({ title: 'Generando resultados...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-      const questionIds = qs.map(q => q.id_pregunta);
-      const { data: opts, error: optsErr } = await supabase.from('opciones_pregunta').select('id_opcion, texto_opcion, url_imagen, id_pregunta').in('id_pregunta', questionIds);
-      if (optsErr || !opts) { Swal.fire('Error', 'No se pudieron cargar las opciones.', 'error'); return; }
+    const { id_encuesta: pollId, id_tipo_votacion } = poll;
 
-      const { data: votes, error: vErr } = await supabase.from('votos_respuestas').select('id_pregunta, id_opcion_seleccionada, valor_puntuacion, orden_ranking').in('id_pregunta', questionIds);
-      if (vErr) { Swal.fire('Error', 'No se pudieron cargar los votos.', 'error'); return; }
-      if (!votes || votes.length === 0) {
+    // --- LÓGICA ESPECIAL PARA PROYECTOS (ID = 4) ---
+    if (id_tipo_votacion === 4) {
+      const { data: projects, error: pErr } = await supabase.from('preguntas_encuesta').select('id_pregunta, texto_pregunta, url_imagen').eq('id_encuesta', pollId);
+      if (pErr) { Swal.fire('Error', 'No se pudieron cargar los proyectos.', 'error'); return; }
+
+      const { data: judges, error: jErr } = await supabase.from('encuesta_jueces').select('jueces(id_juez)').eq('id_encuesta', pollId);
+      if (jErr) { Swal.fire('Error', 'No se pudieron cargar los jueces.', 'error'); return; }
+
+      const { data: votes, error: vErr } = await supabase.from('votos_respuestas').select('id_pregunta, valor_puntuacion, id_juez').eq('id_encuesta', pollId);
+      if (vErr || !votes || votes.length === 0) {
         Swal.fire('Sin Votos', 'Aún no hay votos registrados para esta encuesta.', 'info');
         return;
       }
 
-      const results = new Map<number, ResultQuestionData>();
-      const optionMap = new Map(opts.map(o => [o.id_opcion, o.texto_opcion]));
-
-      qs.forEach(q => {
-        const questionOptions = opts
-          .filter(o => o.id_pregunta === q.id_pregunta)
-          .map(o => ({ name: o.texto_opcion, count: 0, url_imagen: o.url_imagen, voteCount: 0, sumOfValues: 0 }));
-
-        const questionVotes = votes.filter(v => v.id_pregunta === q.id_pregunta);
-        
-        questionVotes.forEach(v => {
-          const optionName = optionMap.get(v.id_opcion_seleccionada!);
-          const option = questionOptions.find(o => o.name === optionName);
-
-          if (option) {
-            if (id_tipo_votacion === 1 || id_tipo_votacion === 2) {
-              option.count++;
-            } else if (id_tipo_votacion === 3) {
-              option.sumOfValues! += v.valor_puntuacion!;
-              option.voteCount!++;
-            } else if (id_tipo_votacion === 4) {
-              option.sumOfValues! += v.orden_ranking!;
-              option.voteCount!++;
-            }
-          }
-        });
-        
-        if (id_tipo_votacion === 3 || id_tipo_votacion === 4) {
-          questionOptions.forEach(opt => {
-            opt.count = opt.voteCount! > 0 ? parseFloat((opt.sumOfValues! / opt.voteCount!).toFixed(2)) : 0;
-          });
-        }
-        
-        results.set(q.id_pregunta, {
-          id_pregunta: q.id_pregunta, texto_pregunta: q.texto_pregunta, options: questionOptions
-        });
-      });
-
-      results.forEach(questionData => {
-        if (id_tipo_votacion === 4) {
-          questionData.options.sort((a, b) => a.count - b.count);
-        } else {
-          questionData.options.sort((a, b) => b.count - a.count);
-        }
-      });
+      const assignedJudges = judges?.map((j: any) => j.jueces).flat().filter(Boolean) || [];
       
-      const finalResults = Array.from(results.values());
+      const projectOptions: ResultOption[] = projects!.map(p => {
+        const projectVotes = votes.filter(v => v.id_pregunta === p.id_pregunta);
+        const judgeVotes = projectVotes.filter(v => v.id_juez !== null);
+        const publicVotes = projectVotes.filter(v => v.id_juez === null);
+
+        const judgeScores = assignedJudges.map((judge: any) => {
+            const vote = judgeVotes.find(v => v.id_juez === judge.id_juez);
+            return vote ? vote.valor_puntuacion || 0 : 0;
+        });
+
+        const publicSum = publicVotes.reduce((acc, v) => acc + (v.valor_puntuacion || 0), 0);
+        const publicScore = publicVotes.length > 0 ? (publicSum / publicVotes.length) : 0;
+        const totalJudgeScore = judgeScores.reduce((acc, score) => acc + score, 0);
+        const totalScore = totalJudgeScore + publicScore;
+
+        // Se usa 'count' para mantener la estructura, pero representa el puntaje total
+        return { name: p.texto_pregunta, count: totalScore, url_imagen: p.url_imagen };
+      });
+
+      projectOptions.sort((a, b) => b.count - a.count);
+
+      // Creamos la estructura que espera el modal
+      const finalResults: ResultQuestionData[] = [{
+        id_pregunta: pollId,
+        texto_pregunta: "Resultados Finales de Proyectos",
+        options: projectOptions,
+      }];
+
       setData(finalResults);
       showWinnerModal(finalResults);
-    };
-    loadAndShow();
+      return;
+    }
+
+    // --- LÓGICA EXISTENTE PARA OTROS TIPOS DE ENCUESTA (Candidatas, etc.) ---
+    const { data: qs, error: qe } = await supabase.from('preguntas_encuesta').select('id_pregunta, texto_pregunta, url_imagen').eq('id_encuesta', pollId).order('id_pregunta', { ascending: true });
+    if (qe || !qs) { Swal.fire('Error', 'No se pudieron cargar las preguntas.', 'error'); return; }
+
+    const questionIds = qs.map(q => q.id_pregunta);
+    const { data: opts, error: optsErr } = await supabase.from('opciones_pregunta').select('id_opcion, texto_opcion, url_imagen, id_pregunta').in('id_pregunta', questionIds);
+    if (optsErr || !opts) { Swal.fire('Error', 'No se pudieron cargar las opciones.', 'error'); return; }
+
+    const { data: votes, error: vErr } = await supabase.from('votos_respuestas').select('id_pregunta, id_opcion_seleccionada').in('id_pregunta', questionIds);
+    if (vErr || !votes || votes.length === 0) {
+      Swal.fire('Sin Votos', 'Aún no hay votos registrados para esta encuesta.', 'info');
+      return;
+    }
+
+    const results = new Map<number, ResultQuestionData>();
+    qs.forEach(q => {
+      const questionOptions = opts.filter(o => o.id_pregunta === q.id_pregunta).map(o => ({
+        name: o.texto_opcion,
+        count: votes.filter(v => v.id_opcion_seleccionada === o.id_opcion).length,
+        url_imagen: o.url_imagen
+      }));
+
+      questionOptions.sort((a, b) => b.count - a.count);
+
+      results.set(q.id_pregunta, {
+        id_pregunta: q.id_pregunta,
+        texto_pregunta: q.texto_pregunta,
+        options: questionOptions
+      });
+    });
+    
+    const finalResults = Array.from(results.values());
+    setData(finalResults);
+    showWinnerModal(finalResults);
   };
+  loadAndShow();
+};
 
   const handleStatusChange = async () => {
-    if (!poll || newStatus === poll.estado) return
-    setSaving(true)
-    const { error } = await supabase
-      .from('encuestas')
-      .update({ estado: newStatus })
-      .eq('id_encuesta', pollId)
+  if (!poll || newStatus === poll.estado) return;
+  setSaving(true);
 
-    if (error) {
-      Swal.fire('Error', 'No se pudo actualizar el estado: ' + error.message, 'error')
-    } else {
-      setPoll(p => p && { ...p, estado: newStatus })
-      Swal.fire('¡Éxito!', `Estado actualizado a: ${newStatus.toUpperCase()}`, 'success')
-    }
-    setSaving(false)
+  // 1. Prepara el objeto a actualizar
+  const updatePayload: { estado: string; fecha_activacion?: string } = {
+    estado: newStatus,
+  };
+
+  // 2. Si el nuevo estado es "activa", añade la fecha y hora actual
+  if (newStatus === 'activa') {
+    updatePayload.fecha_activacion = new Date().toISOString();
   }
+
+  // 3. Envía el objeto completo a Supabase
+  const { error } = await supabase
+    .from('encuestas')
+    .update(updatePayload) // Usa el payload dinámico
+    .eq('id_encuesta', pollId);
+
+  if (error) {
+    Swal.fire('Error', 'No se pudo actualizar el estado: ' + error.message, 'error');
+  } else {
+    // Actualiza el estado localmente, incluyendo la nueva fecha si existe
+    setPoll(p => p && { 
+      ...p, 
+      estado: newStatus, 
+      ...(updatePayload.fecha_activacion && { fecha_activacion: updatePayload.fecha_activacion }) 
+    });
+    Swal.fire('¡Éxito!', `Estado actualizado a: ${newStatus.toUpperCase()}`, 'success');
+  }
+  setSaving(false);
+};
 
   const handleDelete = async () => {
     const result = await Swal.fire({
@@ -462,13 +511,51 @@ export default function PollDetailPage() {
           </a>
         </div>
       </div>
+      {/* --- INICIO DE LA NUEVA SECCIÓN PARA JUECES --- */}
+    {poll.id_tipo_votacion === 4 && assignedJudges.length > 0 && (
+      <div className={styles.judgesSection}>
+        <h2 className={styles.judgesTitle}>Acceso para Jueces</h2>
+        <div className={styles.judgesContainer}>
+          {assignedJudges.map(judge => (
+            <div key={judge.id_juez} className={styles.judgeCard}>
+              <div className={styles.judgeInfo}>
+                {judge.url_imagen && (
+                  <Image src={judge.url_imagen} alt={judge.nombre_completo} width={50} height={50} className={styles.judgeAvatar} />
+                )}
+                <span>{judge.nombre_completo}</span>
+              </div>
+              <div className={styles.judgeQr}>
+                <QRCode value={judge.votingLink} size={120} level="H" />
+              </div>
+              <div className={styles.judgeLinkContainer}>
+                <input type="text" value={judge.votingLink} readOnly className={styles.judgeLinkInput} onClick={(e) => (e.target as HTMLInputElement).select()} />
+                <button 
+                  onClick={() => {
+                    navigator.clipboard.writeText(judge.votingLink);
+                    Swal.fire({
+                      toast: true,
+                      position: 'top-end',
+                      icon: 'success',
+                      title: '¡Enlace copiado!',
+                      showConfirmButton: false,
+                      timer: 1500
+                    });
+                  }}
+                  className={styles.copyButton}
+                >
+                  Copiar
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
       {/* --- DIV OCULTO ACTUALIZADO --- */}
       {data.length > 0 && poll && (
         <div ref={shareableResultRef} className={styles.shareableResultsContainer}>
             <div className={styles.shareableHeader}>
-              <Crown size={28} />
               <h2>Resultados Finales</h2>
-              <Crown size={28} />
             </div>
             <p className={styles.shareablePollTitle}>Encuesta: &quot;{poll.titulo}&quot;</p>
             

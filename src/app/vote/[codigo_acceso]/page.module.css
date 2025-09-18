@@ -209,3 +209,224 @@
 .backButton:hover {
   background-color: #5a6268;
 }
+/* ... (Mantén todos tus estilos existentes) ... */
+
+/* --- ESTILOS MEJORADOS PARA VOTACIÓN DE PROYECTOS --- */
+
+.scoringItem {
+  display: flex;
+  flex-direction: column; /* Apila el slider y el valor */
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+}
+
+.sliderGroup {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+}
+
+.sliderInput {
+  flex-grow: 1; /* El slider ocupa el espacio principal */
+}
+
+.sliderLimit {
+  font-weight: 600;
+  color: #777;
+}
+
+.sliderValue {
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: #333;
+  background-color: #f0f0f0;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  min-width: 200px; /* Ancho mínimo para consistencia */
+  text-align: center;
+}
+
+.scoreInputGroup {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.inputScore {
+    width: 80px;
+    padding: 0.5rem;
+    font-size: 1.1rem;
+    text-align: center;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+.questionImg {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 1rem;
+  
+  /* --- AÑADE ESTA LÍNEA --- */
+  object-fit: contain; /* O usa 'cover' si prefieres que rellene el espacio */
+  
+  /* Opcional: Dale un fondo por si 'contain' deja espacios vacíos */
+  background-color: #f9f9f9; 
+  border-radius: 8px;
+}
+
+/* --- ESTILOS PERSONALIZADOS PARA EL SLIDER (INPUT RANGE) --- */
+
+/* Reseteo base para el slider */
+.sliderInput {
+  -webkit-appearance: none; /* Oculta el estilo por defecto en Chrome/Safari/Edge */
+  appearance: none;
+  width: 100%;
+  height: 8px; /* Altura de la barra */
+  background: transparent; /* Hacemos el fondo original transparente */
+  cursor: pointer;
+  outline: none;
+}
+
+/* Estilo para la BARRA (Track) en Chrome, Safari, Edge */
+.sliderInput::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 8px;
+  background: #d3d3d3; /* Color de la barra de fondo (gris) */
+  border-radius: 5px;
+  border: 1px solid #c5c5c5;
+}
+
+/* Estilo para el CÍRCULO (Thumb/Mango) en Chrome, Safari, Edge */
+.sliderInput::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -7px; /* Centra el círculo verticalmente sobre la barra */
+  width: 22px; /* Ancho del círculo */
+  height: 22px; /* Alto del círculo */
+  background: #8b5cf6; /* Color principal de tu app */
+  border-radius: 50%; /* Lo hace redondo */
+  border: 2px solid #fff; /* Borde blanco para que resalte */
+  box-shadow: 0 0 4px rgba(0,0,0,0.2);
+}
+
+/* Estilo para la BARRA (Track) en Firefox */
+.sliderInput::-moz-range-track {
+  width: 100%;
+  height: 8px;
+  background: #d3d3d3;
+  border-radius: 5px;
+  border: 1px solid #c5c5c5;
+}
+
+/* Estilo para el CÍRCULO (Thumb/Mango) en Firefox */
+.sliderInput::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  background: #8b5cf6;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 4px rgba(0,0,0,0.2);
+  cursor: pointer;
+}
+
+/* ... (mantén tus estilos existentes) ... */
+
+/* --- NUEVOS ESTILOS PARA LA IMAGEN EN RESULTADOS --- */
+
+.imageContainer {
+  position: relative; /* Esencial para que 'layout="fill"' de Next.js Image funcione */
+  width: 100%; /* El contenedor ocupa todo el ancho disponible */
+  padding-top: 56.25%; /* Esto crea un espacio 16:9 (altura / ancho * 100%) */
+  /* Ajusta 'padding-top' si tus imágenes tienen otra proporción (ej. 75% para 4:3, 100% para cuadrado) */
+  background-color: #f0f0f0; /* Fondo para cuando la imagen es transparente */
+  border-radius: 8px;
+  overflow: hidden; /* Asegura que nada se salga del contenedor */
+  margin-bottom: 1rem;
+}
+
+.projectImage {
+  /* Esto se aplica al elemento img dentro del contenedor */
+  position: absolute; /* Para que 'layout="fill"' funcione correctamente */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* Esto es clave: la imagen se escala para encajar sin recortarse */
+  object-position: center; /* Centra la imagen si hay espacio extra */
+}
+
+
+/* --- OTROS ESTILOS QUE YA DEBERÍAS TENER O QUERRÁS AÑADIR --- */
+
+.projectCard {
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  text-align: center;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.rankBadge {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: #f9f9f9;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #333;
+    font-size: 1.1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.projectName {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.finalScore {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #0066cc; /* Color principal de tu app */
+  margin-bottom: 1rem;
+}
+
+.detailedScores {
+  text-align: left;
+  width: 100%;
+  padding: 0 1rem;
+}
+
+.detailItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  color: #555;
+  margin-bottom: 0.5rem;
+}
+
+.detailItem span {
+  font-weight: 600;
+  color: #333;
+}
+
+.pendingScore {
+  color: #f0ad4e; /* Color para "Pendiente" */
+  font-weight: 600;
+}
+

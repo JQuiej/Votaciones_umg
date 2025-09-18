@@ -1,144 +1,179 @@
-// src/app/dashboard/crear_encuesta/[typeId]/page.tsx
 'use client'
 
 import React, { useState, useEffect, ChangeEvent } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Image from 'next/image'
 import { supabase } from '../../../../lib/supabaseClient'
-import imageCompression from 'browser-image-compression';
-import { Eye } from 'lucide-react'
+import imageCompression from 'browser-image-compression'
+import { Eye, PlusCircle, Trash2 } from 'lucide-react'
 import Swal from 'sweetalert2'
 import styles from './page.module.css'
+import { Session } from '@supabase/supabase-js'
 
-// Interfaces
-interface Candidate {
-  name: string
-  imageBase64: string
+// --- INTERFACES ---
+
+interface Project {
+  id: number;
+  name: string;
+  imageFile: File | null;
+  previewUrl: string | null;
 }
 
-interface MultipleQuestion {
-  question: string
-  options: string[]
-  imageBase64: string
+// Estructura para Preguntas y Opciones de Candidatas
+interface Option {
+  id: number;
+  name: string;
+  imageFile: File | null;
+  previewUrl: string | null;
 }
 
-interface ScoringQuestion {
-  question: string
-  options: string[]
-  imageBase64: string
+interface Question {
+  id: number;
+  text: string;
+  options: Option[];
 }
 
-interface RankingQuestion {
-  question: string
-  choices: { text: string; score: number }[]
-  imageBase64: string
+interface Judge {
+  id_juez: number;
+  nombre_completo: string;
+  url_imagen: string | null;
 }
+
+interface NewJudge {
+    name: string;
+    imageFile: File | null;
+    previewUrl: string | null;
+}
+
+// --- FUNCIÓN AUXILIAR PARA AVATAR ---
+const getInitial = (name: string): string => {
+    if (!name) return '?';
+    const titles = /^(Dr|Dra|Ing|Lic)\.?$/i;
+    const parts = name.split(' ');
+    const significantPart = parts.find(part => !titles.test(part));
+    return (significantPart || parts[0]).charAt(0).toUpperCase();
+};
+
 
 export default function CreatePollFormPage() {
   const { typeId } = useParams<{ typeId: string }>()
   const router = useRouter()
 
+  // --- ESTADOS PRINCIPALES ---
+  const [session, setSession] = useState<Session | null>(null);
   const [typeName, setTypeName] = useState('')
   const [titulo, setTitulo] = useState('')
   const [descripcion, setDescripcion] = useState('')
-
-  const [candidates, setCandidates] = useState<Candidate[]>([{ name: '', imageBase64: '' }])
-  const [multiQuestions, setMultiQuestions] = useState<MultipleQuestion[]>([{ question: '', options: [''], imageBase64: '' }])
-  const [scoreQuestions, setScoreQuestions] = useState<ScoringQuestion[]>([{ question: '', options: [''], imageBase64: '' }])
-  const [rankQuestions, setRankQuestions] = useState<RankingQuestion[]>([{ question: '', choices: [{ text: '', score: 0 }], imageBase64: '' }])
   const [preview, setPreview] = useState(false)
 
-  const isCandidates = Number(typeId) === 1
-  const isMultiple = typeName === 'Opción múltiple'
-  const isScoring = typeName === 'Puntuación'
-  const isRanking = typeName === 'Ranking'
+  // --- ESTADOS PARA PROYECTOS Y CANDIDATOS ---
+  const [duracionSegundos, setDuracionSegundos] = useState(3600);
+  const [projects, setProjects] = useState<Project[]>([{ id: Date.now(), name: '', imageFile: null, previewUrl: null }])
+  const [candidateQuestions, setCandidateQuestions] = useState<Question[]>([
+    { id: Date.now(), text: '', options: [{ id: Date.now() + 1, name: '', imageFile: null, previewUrl: null }] }
+  ]);
+  
+  // --- ESTADOS PARA JUECES ---
+  const [availableJudges, setAvailableJudges] = useState<Judge[]>([]);
+  const [selectedJudges, setSelectedJudges] = useState<Set<number>>(new Set());
+  const [newJudge, setNewJudge] = useState<NewJudge>({ name: '', imageFile: null, previewUrl: null });
+
+  // --- BANDERAS SIMPLIFICADAS ---
+  const isProjects = typeName === 'Proyectos';
+  const isCandidates = typeName === 'Candidatas';
 
   useEffect(() => {
-    if (!typeId) return
-    supabase
-      .from('tipos_votacion')
-      .select('nombre')
-      .eq('id_tipo_votacion', Number(typeId))
-      .single()
-      .then(({ data }) => data?.nombre && setTypeName(data.nombre))
-  }, [typeId])
+    const loadInitialData = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setSession(session);
 
-  const readImage = (cb: (dataUrl: string) => void) => async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Opciones de compresión: puedes ajustarlas según tus necesidades
-    const options = {
-      maxSizeMB: 0.3,          // Tamaño máximo del archivo en MB (ej: 0.5MB)
-      maxWidthOrHeight: 800,   // Redimensiona la imagen a un ancho/alto máximo de 800px
-      useWebWorker: true,      // Usa un Web Worker para no bloquear la UI durante la compresión
+      if (!typeId) return;
+      const { data: typeData } = await supabase.from('tipos_votacion').select('nombre').eq('id_tipo_votacion', Number(typeId)).single();
+      if (typeData?.nombre) {
+        setTypeName(typeData.nombre);
+        if (typeData.nombre === 'Proyectos' && session?.user.id) {
+          const { data: judgesData, error: judgesError } = await supabase.from('jueces').select('*').eq('id_usuario_creador', session.user.id);
+          if (judgesError) console.error("Error al cargar jueces:", judgesError);
+          else setAvailableJudges(judgesData || []);
+        }
+      }
     };
+    loadInitialData();
+  }, [typeId]);
 
+  // --- MANEJO DE IMÁGENES (REUTILIZABLE) ---
+  const compressAndPreviewImage = async (file: File, callback: (file: File, url: string) => void) => {
+    if (!file) return;
+    Swal.fire({ title: 'Comprimiendo imagen...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     try {
-      console.log(`Tamaño original: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
-      
+      const options = { maxSizeMB: 0.3, maxWidthOrHeight: 800, useWebWorker: true };
       const compressedFile = await imageCompression(file, options);
-      
-      console.log(`Tamaño comprimido: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`);
-
-      // Ahora, convierte el ARCHIVO COMPRIMIDO a Base64
-      const reader = new FileReader();
-      reader.onload = () => {
-        cb(reader.result as string);
-      };
-      reader.readAsDataURL(compressedFile);
-
+      const previewUrl = URL.createObjectURL(compressedFile);
+      callback(compressedFile, previewUrl);
+      Swal.close();
     } catch (error) {
-      console.error('Error al comprimir la imagen:', error);
-      Swal.fire('Error', 'No se pudo procesar la imagen. Por favor, intenta con otra.', 'error');
-      // Opcionalmente, limpia el input del archivo si falló
-      e.target.value = '';
+      console.error('Error al comprimir:', error);
+      Swal.fire('Error', 'No se pudo procesar la imagen.', 'error');
     }
   };
 
-  const addCandidate = () =>
-    setCandidates(prev => [...prev, { name: '', imageBase64: '' }])
-  const removeCandidate = (i: number) => {
-    const arr = [...candidates]
-    arr.splice(i, 1)
-    setCandidates(arr)
-  }
+  const handleProjectImageChange = (file: File, projectId: number) => {
+    compressAndPreviewImage(file, (compressedFile, previewUrl) => {
+      setProjects(ps => ps.map(p => p.id === projectId ? { ...p, imageFile: compressedFile, previewUrl } : p));
+    });
+  };
 
-  const generateAccessCode = (len = 8) => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-    return Array.from({ length: len }, () =>
-      chars.charAt(Math.floor(Math.random() * chars.length))
-    ).join('')
-  }
+  const handleNewJudgeImageChange = (file: File) => {
+    compressAndPreviewImage(file, (compressedFile, previewUrl) => {
+      setNewJudge(j => ({ ...j, imageFile: compressedFile, previewUrl }));
+    });
+  };
+
+  // --- MANEJO DE JUECES ---
+  const handleAddJudge = async () => {
+    if (!newJudge.name.trim() || !session?.user.id) {
+      Swal.fire('Atención', 'El nombre del juez no puede estar vacío.', 'warning');
+      return;
+    }
+    let imageUrl: string | null = null;
+    if (newJudge.imageFile) {
+        const safeName = newJudge.imageFile.name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+        const filePath = `${session.user.id}/${Date.now()}-${safeName}`;
+        const { error: uploadError } = await supabase.storage.from('fotos_jueces').upload(filePath, newJudge.imageFile);
+        if (uploadError) {
+            Swal.fire('Error de Subida', uploadError.message, 'error');
+            return;
+        }
+        const { data: urlData } = supabase.storage.from('fotos_jueces').getPublicUrl(filePath);
+        imageUrl = urlData.publicUrl;
+    }
+    const { data, error } = await supabase.from('jueces').insert({
+      nombre_completo: newJudge.name.trim(),
+      id_usuario_creador: session.user.id,
+      url_imagen: imageUrl,
+    }).select().single();
+
+    if (error) {
+      Swal.fire('Error', `No se pudo agregar al juez: ${error.message}`, 'error');
+    } else if (data) {
+      setAvailableJudges(current => [...current, data]);
+      setNewJudge({ name: '', imageFile: null, previewUrl: null });
+    }
+  };
+
+  const handleToggleJudgeSelection = (judgeId: number) => {
+    setSelectedJudges(prev => {
+      const newSet = new Set(prev);
+      newSet.has(judgeId) ? newSet.delete(judgeId) : newSet.add(judgeId);
+      return newSet;
+    });
+  };
 
   const validateForm = () => {
     if (!titulo.trim()) {
       Swal.fire('Campo Requerido', 'El título de la encuesta no puede estar vacío.', 'warning');
       return false;
     }
-  
-    if (isCandidates) {
-      if (candidates.some(c => !c.name.trim())) {
-        Swal.fire('Campo Requerido', 'Todas las opciones deben tener un nombre.', 'warning');
-        return false;
-      }
-    } else if (isMultiple) {
-      if (multiQuestions.some(q => !q.question.trim() || q.options.some(opt => !opt.trim()))) {
-        Swal.fire('Campos Requeridos', 'Toda pregunta y sus opciones deben tener texto.', 'warning');
-        return false;
-      }
-    } else if (isScoring) {
-      if (scoreQuestions.some(q => !q.question.trim() || q.options.some(opt => !opt.trim()))) {
-        Swal.fire('Campos Requeridos', 'Toda pregunta de puntuación y sus opciones deben tener texto.', 'warning');
-        return false;
-      }
-    } else if (isRanking) {
-      if (rankQuestions.some(q => !q.question.trim() || q.choices.some(c => !c.text.trim()))) {
-        Swal.fire('Campos Requeridos', 'Toda pregunta y sus opciones de ranking deben tener texto.', 'warning');
-        return false;
-      }
-    }
-  
     return true;
   };
 
@@ -148,155 +183,158 @@ export default function CreatePollFormPage() {
     }
   };
 
+  // --- FUNCIÓN DE ENVÍO PRINCIPAL ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    Swal.fire({
-      title: 'Creando encuesta...',
-      text: 'Por favor, espera.',
-      allowOutsideClick: false,
-      didOpen: () => Swal.showLoading(),
-    });
-
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user.id) return router.replace('/auth/login');
-
-    const code = generateAccessCode(8);
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
-    const url = `${baseUrl}/vote/${code}`;
-
-    const { data: enc, error: encErr } = await supabase
-      .from('encuestas')
-      .insert({
-        titulo,
-        descripcion,
-        id_tipo_votacion: Number(typeId),
-        id_usuario_creador: session.user.id,
-        codigo_acceso: code,
-        url_votacion: url,
-      })
-      .select('id_encuesta')
-      .single();
-
-    if (encErr || !enc) {
-      Swal.fire({ icon: 'error', title: '¡Oops!', text: encErr?.message || 'No se pudo crear la encuesta.' });
-      return;
+    if (!session?.user.id) {
+        Swal.fire('Error', 'No se ha iniciado sesión.', 'error');
+        return router.replace('/auth/login');
     }
-    const pollId = enc.id_encuesta;
 
+    Swal.fire({ title: 'Creando encuesta...', text: 'Por favor, espera.', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    
     try {
-      if (isCandidates) {
-        const { data: pq, error: pqErr } = await supabase.from('preguntas_encuesta').insert({id_encuesta: pollId, id_tipo_votacion: Number(typeId), texto_pregunta: 'Opciones', url_imagen: null}).select('id_pregunta').single()
-        if (pqErr || !pq) throw pqErr
-        await supabase.from('opciones_pregunta').insert(candidates.filter(c => c.name.trim()).map(c => ({id_pregunta: pq.id_pregunta, texto_opcion: c.name.trim(), url_imagen: c.imageBase64 || null})))
-      } else if (isMultiple) {
-        for (const q of multiQuestions) {
-          const { data: pq, error: pqErr } = await supabase.from('preguntas_encuesta').insert({id_encuesta: pollId, id_tipo_votacion: Number(typeId), texto_pregunta: q.question.trim(), url_imagen: q.imageBase64 || null}).select('id_pregunta').single()
-          if (pqErr || !pq) throw pqErr
-          await supabase.from('opciones_pregunta').insert(q.options.filter(o => o.trim()).map(opt => ({id_pregunta: pq.id_pregunta, texto_opcion: opt.trim(), url_imagen: null })))
-        }
-      } else if (isScoring) {
-        for (const q of scoreQuestions) {
-          const { data: pq, error: pqErr } = await supabase.from('preguntas_encuesta').insert({id_encuesta: pollId, id_tipo_votacion: Number(typeId), texto_pregunta: q.question.trim(), url_imagen: q.imageBase64 || null}).select('id_pregunta').single();
-          if (pqErr || !pq) throw pqErr;
-          await supabase.from('opciones_pregunta').insert(q.options.filter(o => o.trim()).map(opt => ({id_pregunta: pq.id_pregunta, texto_opcion: opt.trim(), url_imagen: null })));
-        }
-      } else if (isRanking) {
-        for (const q of rankQuestions) {
-          const { data: pq, error: pqErr } = await supabase.from('preguntas_encuesta').insert({id_encuesta: pollId, id_tipo_votacion: Number(typeId), texto_pregunta: q.question.trim(), url_imagen: q.imageBase64 || null}).select('id_pregunta').single()
-          if (pqErr || !pq) throw pqErr
-          await supabase.from('opciones_pregunta').insert(q.choices.filter(c => c.text.trim()).map(c => ({id_pregunta: pq.id_pregunta, texto_opcion: c.text.trim(), url_imagen: null})))
-        }
-      }
+        if (isProjects) {
+            const projectsWithUrls = await Promise.all(
+                projects.map(async (project) => {
+                    let imageUrl: string | null = null;
+                    if (project.imageFile) {
+                        const safeName = project.imageFile.name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+                        const filePath = `${session.user.id}/${Date.now()}-${safeName}`;
+                        const { error: uploadError } = await supabase.storage.from('imagenes_proyectos').upload(filePath, project.imageFile);
+                        if (uploadError) throw new Error(`Error al subir imagen del proyecto: ${uploadError.message}`);
+                        
+                        const { data: urlData } = supabase.storage.from('imagenes_proyectos').getPublicUrl(filePath);
+                        imageUrl = urlData.publicUrl;
+                    }
+                    return { name: project.name, imageUrl: imageUrl };
+                })
+            );
 
-      Swal.fire({
-        icon: 'success',
-        title: '¡Encuesta Creada!',
-        text: 'Tu encuesta ha sido creada exitosamente.',
-        timer: 2000,
-        showConfirmButton: false,
-      }).then(() => router.push(`/dashboard/polls/${pollId}`));
+            const args = {
+                titulo: titulo.trim(),
+                descripcion: descripcion.trim(),
+                duracion_segundos: duracionSegundos,
+                id_usuario_creador: session.user.id,
+                id_tipo_votacion_param: Number(typeId),
+                proyectos: projectsWithUrls,
+                jueces: Array.from(selectedJudges)
+            };
 
-    } catch (err) {
-      let message = 'Ocurrió un error desconocido.';
-      if (err instanceof Error) message = err.message;
-      Swal.fire({ icon: 'error', title: 'Error al guardar preguntas', text: message });
+            const { data: pollId, error } = await supabase.rpc('crear_encuesta_proyectos', args);
+            if (error) throw error;
+            
+            Swal.fire({ icon: 'success', title: '¡Encuesta Creada!', timer: 2000, showConfirmButton: false })
+                .then(() => router.push(`/dashboard/polls/${pollId}`));
+
+        } else if (isCandidates) {
+            const code = `${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+            const url = `${window.location.origin}/vote/${code}`;
+
+            const { data: enc, error: encErr } = await supabase.from('encuestas').insert({
+                titulo: titulo.trim(),
+                descripcion: descripcion.trim(),
+                id_tipo_votacion: Number(typeId),
+                id_usuario_creador: session.user.id,
+                codigo_acceso: code,
+                url_votacion: url,
+            }).select('id_encuesta').single();
+
+            if (encErr || !enc) throw encErr || new Error('No se pudo crear la encuesta.');
+            const pollId = enc.id_encuesta;
+
+            for (const question of candidateQuestions) {
+                if (!question.text.trim()) continue;
+
+                const { data: pq, error: pqErr } = await supabase.from('preguntas_encuesta').insert({
+                    id_encuesta: pollId, 
+                    id_tipo_votacion: Number(typeId), 
+                    texto_pregunta: question.text.trim(),
+                }).select('id_pregunta').single();
+                
+                if (pqErr || !pq) throw pqErr;
+                const questionId = pq.id_pregunta;
+
+                const candidateOptions = await Promise.all(
+                    question.options.filter(c => c.name.trim()).map(async (candidate) => {
+                        let imageUrl: string | null = null;
+                        if (candidate.imageFile) {
+                            const safeName = candidate.imageFile.name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+                            const filePath = `${session.user.id}/${pollId}/${questionId}-${safeName}`;
+                            const { error: uploadError } = await supabase.storage.from('imagenes_candidatos').upload(filePath, candidate.imageFile);
+                            
+                            if (uploadError) {
+                                console.error("Error subiendo imagen de candidato: ", uploadError.message);
+                            } else {
+                                const { data: urlData } = supabase.storage.from('imagenes_candidatos').getPublicUrl(filePath);
+                                imageUrl = urlData.publicUrl;
+                            }
+                        }
+                        return {
+                            id_pregunta: questionId,
+                            texto_opcion: candidate.name.trim(),
+                            url_imagen: imageUrl
+                        };
+                    })
+                );
+
+                if(candidateOptions.length > 0) {
+                    const { error: optsErr } = await supabase.from('opciones_pregunta').insert(candidateOptions);
+                    if (optsErr) throw optsErr;
+                }
+            }
+
+            Swal.fire({ icon: 'success', title: '¡Encuesta Creada!', timer: 2000, showConfirmButton: false })
+               .then(() => router.push(`/dashboard/polls/${pollId}`));
+        }
+
+    } catch (err: any) {
+        Swal.fire({ icon: 'error', title: 'Error en el proceso', text: err.message });
     }
   };
-  
+
+  // --- VISTA PREVIA ---
   if (preview) {
     return (
       <div className={styles.container}>
         <div className={styles.headerContainer}>
-            <button onClick={() => setPreview(false)} className={styles.backButton}>
-             ←
-            </button>
-            <h1 className={styles.heading}>Previsualización</h1>
+          <button onClick={() => setPreview(false)} className={styles.backButton}>←</button>
+          <h1 className={styles.heading}>Previsualización</h1>
         </div>
         
         <h2 className={styles.previewPollTitle}>{titulo}</h2>
         {descripcion && <p className={styles.description}>{descripcion}</p>}
         
         <form className={styles.form}>
-          {isCandidates && (
-            <fieldset className={styles.fieldset}>
-              <legend>Opciones</legend>
+          {isCandidates && candidateQuestions.map(q => (
+            <fieldset key={q.id} className={styles.fieldset}>
+              <legend>{q.text || 'Pregunta'}</legend>
               <div className={styles.optionsContainer}>
-                {candidates.map((c,i) => (
-                  <label key={i} className={styles.optionItem}>
-                    <input type="radio" name="single" disabled />
-                    {c.imageBase64 && <Image src={c.imageBase64} alt={c.name || 'Imagen de opción'} width={40} height={40} className={styles.optionImg} />}
-                    <span>{c.name}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          )}
-          {isMultiple && multiQuestions.map((q, qi) => (
-            <fieldset key={qi} className={styles.fieldset}>
-              <legend>{q.question}</legend>
-              {q.imageBase64 && <Image src={q.imageBase64} alt={q.question || 'Imagen de pregunta'} width={100} height={100} className={styles.previewImg} />}
-              <div className={styles.optionsContainer}>
-                {q.options.map((opt, oi) => (
-                  <label key={oi} className={styles.optionItem}>
-                    <input type="checkbox" disabled />
-                    <span>{opt}</span>
+                {q.options.map((opt) => (
+                  <label key={opt.id} className={styles.optionItem}>
+                    <input type="radio" name={`preview_q_${q.id}`} disabled />
+                    {opt.previewUrl && <Image src={opt.previewUrl} alt={opt.name || 'Imagen'} width={40} height={40} className={styles.optionImg} />}
+                    <span>{opt.name}</span>
                   </label>
                 ))}
               </div>
             </fieldset>
           ))}
-          {isScoring && scoreQuestions.map((q, qi) => (
-            <fieldset key={qi} className={styles.fieldset}>
-              <legend>{q.question}</legend>
-              {q.imageBase64 && <Image src={q.imageBase64} alt={q.question || 'Imagen de pregunta'} width={100} height={100} className={styles.previewImg} />}
-              <div className={styles.optionsContainer}>
-                {q.options.map((opt, oi) => (
-                  <div key={oi} className={styles.scoringItem}>
-                    <span className={styles.scoringOptionLabel}>{opt}</span>
+
+          {isProjects && projects.map((p) => (
+             <fieldset key={p.id} className={styles.fieldset}>
+               <legend>{p.name}</legend>
+               {p.previewUrl && <Image src={p.previewUrl} alt={p.name || 'Imagen'} width={100} height={100} className={styles.previewImg}/>}
+                <div className={styles.scoringItem}>
+                    <span className={styles.scoringOptionLabel}>Puntuación</span>
                     <div className={styles.sliderGroup}>
-                        <input type="range" min={1} max={10} defaultValue={5} disabled className={styles.sliderInput} />
-                        <span className={styles.sliderValue}>5</span>
+                        <input type="range" min={0} max={10} step={0.1} defaultValue={5} disabled className={styles.sliderInput} />
+                        <span className={styles.sliderValue}>5.0</span>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </fieldset>
-          ))}
-          {isRanking && rankQuestions.map((q, qi) => (
-            <fieldset key={qi} className={styles.fieldset}>
-              <legend>{q.question}</legend>
-              {q.imageBase64 && <Image src={q.imageBase64} alt={q.question || 'Imagen de pregunta'} width={100} height={100} className={styles.previewImg} />}
-              <div className={styles.optionsContainer}>
-                {q.choices.map((c, ci) => (
-                  <label key={ci} className={styles.optionItem}>
-                    <span>{c.text}</span>
-                    <input type="number" min={1} max={q.choices.length} disabled className={styles.inputNumber} style={{marginLeft: 'auto'}}/>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
+                </div>
+             </fieldset>
           ))}
           <button type="button" disabled className={styles.submitBtn}>
             Enviar voto (simulado)
@@ -306,12 +344,11 @@ export default function CreatePollFormPage() {
     )
   }
 
+  // --- FORMULARIO PRINCIPAL ---
   return (
     <div className={styles.container}>
       <div className={styles.headerContainer}>
-        <button onClick={() => router.back()} className={styles.backButton}>
-         ←
-        </button>
+        <button onClick={() => router.back()} className={styles.backButton}>←</button>
         <h1 className={styles.heading}>Crear encuesta: {typeName}</h1>
       </div>
       <form className={styles.form} onSubmit={handleSubmit}>
@@ -323,94 +360,175 @@ export default function CreatePollFormPage() {
           <label>Descripción</label>
           <textarea className={styles.textarea} value={descripcion} onChange={e => setDescripcion(e.target.value)} />
         </div>
+        
+        {isProjects && (
+            <>
+                <div className={styles.field}>
+                    <label>Duración de la Votación (en segundos)</label>
+                    <input type="number" className={styles.input} value={duracionSegundos} onChange={e => setDuracionSegundos(parseInt(e.target.value, 10) || 0)} required min="1" />
+                </div>
+                <fieldset className={styles.card}>
+                    <legend>Proyectos a Evaluar</legend>
+                    {projects.map((p, i) => (
+                        <div key={p.id} className={styles.projectItem}>
+                            <input className={styles.input} placeholder={`Nombre del Proyecto #${i + 1}`} value={p.name}
+                                onChange={e => setProjects(ps => ps.map(proj => proj.id === p.id ? {...proj, name: e.target.value} : proj))}
+                                required
+                            />
+                            <input type="file" accept="image/*" className={styles.fileInput}
+                                onChange={(e) => e.target.files?.[0] && handleProjectImageChange(e.target.files[0], p.id)}
+                            />
+                            {p.previewUrl && <Image src={p.previewUrl} alt="Vista previa" width={50} height={50} style={{objectFit: 'cover', borderRadius: '8px'}}/>}
+                            {projects.length > 1 && <button type="button" onClick={() => setProjects(ps => ps.filter(proj => proj.id !== p.id))} className={styles.removeBtnMini}><Trash2 size={16}/></button>}
+                        </div>
+                    ))}
+                    <button type="button" onClick={() => setProjects([...projects, { id: Date.now(), name: '', imageFile: null, previewUrl: null }])} className={styles.button}><PlusCircle size={16}/> Agregar Proyecto</button>
+                </fieldset>
 
-        {isCandidates && candidates.map((c, i) => (
-          <div key={i} className={styles.card}>
-            <input className={styles.input} placeholder="Nombre de la opción" value={c.name} onChange={e => {const arr = [...candidates]; arr[i].name = e.target.value; setCandidates(arr)}} required />
-            {c.imageBase64 ? (
-              <div className={styles.imagePreview}>
-                <Image src={c.imageBase64} alt="Vista previa" width={50} height={50} className={styles.thumb} />
-                <button type="button" onClick={() => {const arr = [...candidates]; arr[i].imageBase64 = ''; setCandidates(arr);}} className={styles.removeImgBtn}>Quitar</button>
-              </div>
-            ) : (
-              <input className={styles.input} type="file" accept="image/*" onChange={readImage(dataUrl => {const arr = [...candidates]; arr[i].imageBase64 = dataUrl; setCandidates(arr)})} />
-            )}
-            {candidates.length > 1 && (<button type="button" onClick={() => removeCandidate(i)} className={styles.removeBtn}>Eliminar Opción</button>)}
-          </div>
-        ))}
-        {isCandidates && (<button type="button" onClick={addCandidate} className={styles.button}>+ Agregar Opción</button>)}
+                <fieldset className={styles.card}>
+                    <legend>Terna Calificadora</legend>
+                    <p className={styles.subtleLabel}>Selecciona los jueces que participarán:</p>
+                    <div className={styles.judgesGrid}>
+                        {availableJudges.map((j) => (
+                            <div key={j.id_juez} className={`${styles.judgeCard} ${selectedJudges.has(j.id_juez) ? styles.selected : ''}`} onClick={() => handleToggleJudgeSelection(j.id_juez)}>
+                                <input type="checkbox" checked={selectedJudges.has(j.id_juez)} readOnly className={styles.checkbox}/>
+                                {j.url_imagen ? 
+                                    <Image src={j.url_imagen} alt={j.nombre_completo} width={40} height={40} className={styles.judgeImage}/> :
+                                    <div className={styles.judgeAvatar}>{getInitial(j.nombre_completo)}</div>
+                                }
+                                <span>{j.nombre_completo}</span>
+                            </div>
+                        ))}
+                    </div>
+                    <div className={styles.addJudgeSection}>
+                        <p className={styles.subtleLabel}>O agrega un nuevo juez:</p>
+                        <div className={styles.optionRow}>
+                            <input className={styles.input} placeholder="Nombre completo del nuevo juez" value={newJudge.name} onChange={e => setNewJudge(j => ({...j, name: e.target.value}))} />
+                            <input type="file" accept="image/*" className={styles.fileInput} onChange={(e) => e.target.files?.[0] && handleNewJudgeImageChange(e.target.files[0])}/>
+                            {newJudge.previewUrl && <Image src={newJudge.previewUrl} alt="preview" width={40} height={40} className={styles.judgeImage}/>}
+                            <button type="button" onClick={handleAddJudge} className={styles.button}><PlusCircle size={16}/> Guardar Juez</button>
+                        </div>
+                    </div>
+                </fieldset>
+            </>
+        )}
 
-        {isMultiple && multiQuestions.map((q, i) => (
-          <div key={i} className={styles.card}>
-            <input className={styles.input} placeholder="Pregunta" value={q.question} onChange={e => {const arr = [...multiQuestions]; arr[i].question = e.target.value; setMultiQuestions(arr)}} required />
-            {q.imageBase64 ? (
-              <div className={styles.imagePreview}>
-                <Image src={q.imageBase64} alt="Vista previa" width={50} height={50} className={styles.thumb} />
-                <button type="button" onClick={() => {const arr = [...multiQuestions]; arr[i].imageBase64 = ''; setMultiQuestions(arr);}} className={styles.removeImgBtn}>Quitar</button>
-              </div>
-            ) : (
-              <input className={styles.input} type="file" accept="image/*" onChange={readImage(dataUrl => {const arr = [...multiQuestions]; arr[i].imageBase64 = dataUrl; setMultiQuestions(arr)})}/>
-            )}
-            {q.options.map((opt, j) => (
-              <div key={j} className={styles.optionRow}>
-                <input className={styles.input} placeholder={`Opción #${j + 1}`} value={opt} onChange={e => {const arr = [...multiQuestions]; arr[i].options[j] = e.target.value; setMultiQuestions(arr)}} required />
-                {q.options.length > 1 && (<button type="button" onClick={() => {const arr = [...multiQuestions]; arr[i].options.splice(j, 1); setMultiQuestions(arr)}} className={styles.removeBtnMini}>×</button>)}
-              </div>
+        {isCandidates && (
+          <>
+            {candidateQuestions.map((q, qi) => (
+              <fieldset key={q.id} className={styles.card}>
+                <legend>
+                  Pregunta #{qi + 1}
+                  {candidateQuestions.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setCandidateQuestions(qs => qs.filter(question => question.id !== q.id))}
+                      className={styles.removeBtnMini}
+                      style={{ marginLeft: '1rem' }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </legend>
+                
+                <input
+                  className={styles.input}
+                  placeholder={`Texto de la Pregunta #${qi + 1}`}
+                  value={q.text}
+                  onChange={(e) => {
+                    const newText = e.target.value;
+                    setCandidateQuestions(qs => qs.map(question => 
+                      question.id === q.id ? { ...question, text: newText } : question
+                    ));
+                  }}
+                  required
+                />
+                
+                <hr style={{border: 'none', borderTop: '1px solid #eee', margin: '1rem 0'}} />
+
+                {q.options.map((opt, oi) => (
+                  <div key={opt.id} className={styles.projectItem}>
+                    <input
+                      className={styles.input}
+                      placeholder={`Nombre Candidata #${oi + 1}`}
+                      value={opt.name}
+                      onChange={(e) => {
+                        const newName = e.target.value;
+                        setCandidateQuestions(qs => qs.map(question => 
+                          question.id === q.id 
+                          ? { ...question, options: question.options.map(option => option.id === opt.id ? { ...option, name: newName } : option) } 
+                          : question
+                        ));
+                      }}
+                      required
+                    />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className={styles.fileInput}
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) {
+                          const file = e.target.files[0];
+                          compressAndPreviewImage(file, (compressedFile, previewUrl) => {
+                            setCandidateQuestions(qs => qs.map(question => 
+                              question.id === q.id 
+                              ? { ...question, options: question.options.map(option => option.id === opt.id ? { ...option, imageFile: compressedFile, previewUrl } : option) } 
+                              : question
+                            ));
+                          });
+                        }
+                      }}
+                    />
+                    {opt.previewUrl && <Image src={opt.previewUrl} alt="Vista previa" width={50} height={50} style={{ objectFit: 'cover', borderRadius: '8px' }} />}
+                    {q.options.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCandidateQuestions(qs => qs.map(question => 
+                            question.id === q.id 
+                            ? { ...question, options: question.options.filter(option => option.id !== opt.id) } 
+                            : question
+                          ));
+                        }}
+                        className={styles.removeBtnMini}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newOption = { id: Date.now(), name: '', imageFile: null, previewUrl: null };
+                    setCandidateQuestions(qs => qs.map(question => 
+                      question.id === q.id 
+                      ? { ...question, options: [...question.options, newOption] } 
+                      : question
+                    ));
+                  }}
+                  className={styles.button}
+                >
+                  <PlusCircle size={16} /> Agregar Candidata
+                </button>
+              </fieldset>
             ))}
-            <button type="button" onClick={() => {const arr = [...multiQuestions]; arr[i].options.push(''); setMultiQuestions(arr)}} className={styles.button}>+ Agregar opción</button>
-            {multiQuestions.length > 1 && (<button type="button" onClick={() => {const arr = [...multiQuestions]; arr.splice(i, 1); setMultiQuestions(arr)}} className={styles.removeBtn}>Eliminar Pregunta</button>)}
-          </div>
-        ))}
-        {isMultiple && (<button type="button" onClick={() => setMultiQuestions(prev => [...prev, { question: '', options: [''], imageBase64: '' }])} className={styles.button}>+ Agregar pregunta</button>)}
-
-        {isScoring && scoreQuestions.map((q, i) => (
-          <div key={i} className={styles.card}>
-            <input className={styles.input} placeholder="Pregunta (ej: Califica nuestros servicios)" value={q.question} onChange={e => {const arr = [...scoreQuestions]; arr[i].question = e.target.value; setScoreQuestions(arr)}} required />
-            {q.imageBase64 ? (
-              <div className={styles.imagePreview}>
-                <Image src={q.imageBase64} alt="Vista previa" width={50} height={50} className={styles.thumb} />
-                <button type="button" onClick={() => {const arr = [...scoreQuestions]; arr[i].imageBase64 = ''; setScoreQuestions(arr);}} className={styles.removeImgBtn}>Quitar</button>
-              </div>
-            ) : (
-              <input className={styles.input} type="file" accept="image/*" onChange={readImage(dataUrl => {const arr = [...scoreQuestions]; arr[i].imageBase64 = dataUrl; setScoreQuestions(arr)})}/>
-            )}
-            <label className={styles.subtleLabel}>Opciones a calificar (de 1 a 10):</label>
-            {q.options.map((opt, j) => (
-              <div key={j} className={styles.optionRow}>
-                <input className={styles.input} placeholder={`Opción #${j + 1} (ej: Calidad)`} value={opt} onChange={e => {const arr = [...scoreQuestions]; arr[i].options[j] = e.target.value; setScoreQuestions(arr)}} required />
-                {q.options.length > 1 && (<button type="button" onClick={() => {const arr = [...scoreQuestions]; arr[i].options.splice(j, 1); setScoreQuestions(arr)}} className={styles.removeBtnMini}>×</button>)}
-              </div>
-            ))}
-            <button type="button" onClick={() => {const arr = [...scoreQuestions]; arr[i].options.push(''); setScoreQuestions(arr)}} className={styles.button}>+ Agregar opción a calificar</button>
-            {scoreQuestions.length > 1 && (<button type="button" onClick={() => {const arr = [...scoreQuestions]; arr.splice(i, 1); setScoreQuestions(arr)}} className={styles.removeBtn}>Eliminar Pregunta</button>)}
-          </div>
-        ))}
-        {isScoring && (<button type="button" onClick={() => setScoreQuestions(prev => [...prev, { question: '', options: [''], imageBase64: '' }])} className={styles.button}>+ Agregar pregunta</button>)}
-
-        {isRanking && rankQuestions.map((q, i) => (
-          <div key={i} className={styles.card}>
-            <input className={styles.input} placeholder="Pregunta" value={q.question} onChange={e => {const arr = [...rankQuestions]; arr[i].question = e.target.value; setRankQuestions(arr)}} required />
-            {q.imageBase64 ? (
-              <div className={styles.imagePreview}>
-                <Image src={q.imageBase64} alt="Vista previa" width={50} height={50} className={styles.thumb} />
-                <button type="button" onClick={() => {const arr = [...rankQuestions]; arr[i].imageBase64 = ''; setRankQuestions(arr);}} className={styles.removeImgBtn}>Quitar</button>
-              </div>
-            ) : (
-              <input className={styles.input} type="file" accept="image/*" onChange={readImage(dataUrl => {const arr = [...rankQuestions]; arr[i].imageBase64 = dataUrl; setRankQuestions(arr)})}/>
-            )}
-            <label className={styles.subtleLabel}>Opciones a rankear:</label>
-            {q.choices.map((c, j) => (
-              <div key={j} className={styles.optionRow}>
-                <input className={styles.input} placeholder="Opción a rankear" value={c.text} onChange={e => {const arr = [...rankQuestions]; arr[i].choices[j].text = e.target.value; setRankQuestions(arr)}} required />
-                {q.choices.length > 1 && (<button type="button" onClick={() => {const arr = [...rankQuestions]; arr[i].choices.splice(j, 1); setRankQuestions(arr)}} className={styles.removeBtnMini}>×</button>)}
-              </div>
-            ))}
-            <button type="button" onClick={() => {const arr = [...rankQuestions]; arr[i].choices.push({ text: '', score: 0 }); setRankQuestions(arr)}} className={styles.button}>+ Agregar opción</button>
-            {rankQuestions.length > 1 && (<button type="button" onClick={() => {const arr = [...rankQuestions]; arr.splice(i, 1); setRankQuestions(arr)}} className={styles.removeBtn}>Eliminar Pregunta</button>)}
-          </div>
-        ))}
-        {isRanking && (<button type="button" onClick={() => setRankQuestions(prev => [...prev, { question: '', choices: [{ text: '', score: 0 }], imageBase64: '' }])} className={styles.button}>+ Agregar pregunta</button>)}
-
+            
+            <button
+              type="button"
+              onClick={() => {
+                const newQuestion = { id: Date.now(), text: '', options: [{ id: Date.now() + 1, name: '', imageFile: null, previewUrl: null }] };
+                setCandidateQuestions(qs => [...qs, newQuestion]);
+              }}
+              className={styles.button}
+              style={{ width: '100%', justifyContent: 'center' }}
+            >
+              <PlusCircle size={16} /> Agregar Pregunta
+            </button>
+          </>
+        )}
+        
         <div className={styles.actions}>
           <button type="button" onClick={handlePreview} className={styles.previewBtn}>
             <Eye size={16} /> Previsualizar

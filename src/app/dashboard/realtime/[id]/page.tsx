@@ -1,3 +1,4 @@
+// src/app/dashboard/realtime/[id]/page.tsx
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -6,30 +7,13 @@ import { useRouter, useParams } from 'next/navigation';
 import { QRCodeCanvas } from 'qrcode.react';
 import Swal from 'sweetalert2';
 import html2canvas from 'html2canvas';
-import { Share2, PartyPopper, Crown } from 'lucide-react';
+import { Share2, PartyPopper, Crown, User, Users, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../../../../lib/supabaseClient';
 import Confetti from 'react-confetti';
-import {
-  ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, Tooltip,
-  PieChart, Pie, Cell, Legend
-} from 'recharts';
+import dynamic from 'next/dynamic';
 import styles from './page.module.css';
 
-// Interfaces
-interface OptionCount {
-  name: string;
-  count: number;
-  url_imagen?: string;
-  voteCount?: number;
-  sumOfValues?: number;
-}
-interface QuestionData {
-  id_pregunta: number;
-  texto_pregunta: string;
-  url_imagen?: string;
-  options: OptionCount[];
-}
+// --- Interfaces ---
 interface PollDetails {
     id_encuesta: number;
     id_tipo_votacion: number;
@@ -37,468 +21,453 @@ interface PollDetails {
     estado: string;
     url_votacion: string;
     codigo_acceso: string;
+    duracion_segundos: number | null;
+    created_at: string;
+    fecha_activacion: string | null;
+    tipo_votacion?: { nombre: string };
 }
+interface Judge {
+    id_juez: number;
+    nombre_completo: string;
+    url_imagen: string | null;
+}
+interface ProjectResult {
+    id: number;
+    name: string;
+    imageUrl: string | null;
+    judgeScores: { name: string; score: number | null; imageUrl: string | null }[];
+    publicScore: number;
+    totalScore: number;
+}
+interface CandidateResult {
+    id_pregunta: number;
+    texto_pregunta: string;
+    url_imagen: string | null;
+    options: { name: string; count: number; url_imagen?: string | null }[];
+}
+type ResultData = ProjectResult | CandidateResult;
+
+// Crea la versión dinámica del componente de gráficos
+const DynamicChartDisplay = dynamic(
+    () => import('./ChartDisplay'), 
+    { 
+        ssr: false, // La clave: deshabilita el renderizado en servidor
+        loading: () => <div style={{height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>Cargando gráficos...</div>
+    }
+);
 
 export default function RealtimePollResultsPage() {
-  const params = useParams();
-  const router = useRouter();
-  
-  const [pollDetails, setPollDetails] = useState<PollDetails | null>(null);
-  const [view, setView] = useState<'bar' | 'pie'>('bar');
-  const [data, setData] = useState<QuestionData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [totalVotes, setTotalVotes] = useState(0);
-  const [showConfetti, setShowConfetti] = useState(false);
-  
-  const shareableResultRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const pollIdFromUrl = parseInt(params.id as string, 10);
-    if (isNaN(pollIdFromUrl)) {
-      setError("El ID de la encuesta no es válido."); setLoading(false); return;
-    }
+    const params = useParams();
+    const router = useRouter();
     
-    const loadData = async (isInitialLoad = false) => {
-      if (isInitialLoad) setLoading(true);
+    const [pollDetails, setPollDetails] = useState<PollDetails | null>(null);
+    const [data, setData] = useState<ResultData[]>([]);
+    const [view, setView] = useState<'bar' | 'pie'>('bar');
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [totalVotes, setTotalVotes] = useState(0);
+    const [timeLeft, setTimeLeft] = useState<number | null>(null);
+    const [showConfetti, setShowConfetti] = useState(false);
+    const [judgeNames, setJudgeNames] = useState<string[]>([]);
 
-      const { data: poll, error: pollErr } = await supabase.from('encuestas').select('id_encuesta, id_tipo_votacion, titulo, estado, url_votacion, codigo_acceso').eq('id_encuesta', pollIdFromUrl).single();
-      if (pollErr || !poll) {
-        setError('No se encontró la encuesta o no tienes permiso para verla.'); setLoading(false); return;
-      }
-      setPollDetails(poll);
+    const shareableResultRef = useRef<HTMLDivElement>(null);
 
-      const { id_encuesta: pollId, id_tipo_votacion } = poll;
-      const { data: qs, error: qe } = await supabase.from('preguntas_encuesta').select('id_pregunta, texto_pregunta, url_imagen').eq('id_encuesta', pollId).order('id_pregunta', { ascending: true });
-      if (qe || !qs) { if(isInitialLoad) { setError('Error al cargar preguntas.'); setLoading(false); } return; }
+    const pollId = params.id ? parseInt(params.id as string, 10) : NaN;
 
-      const questionIds = qs.map(q => q.id_pregunta);
-      const { data: opts, error: optsErr } = await supabase.from('opciones_pregunta').select('id_opcion, texto_opcion, url_imagen, id_pregunta').in('id_pregunta', questionIds);
-      if (optsErr || !opts) { if(isInitialLoad) { setError('Error al cargar opciones.'); setLoading(false); } return; }
-      
-      const { data: votes, error: vErr } = await supabase.from('votos_respuestas').select('id_pregunta, id_opcion_seleccionada, valor_puntuacion, orden_ranking').in('id_pregunta', questionIds);
-      if (vErr) { if(isInitialLoad) { setError(vErr.message); setLoading(false); } return; }
-      
-      setTotalVotes(votes?.length || 0);
+    const isProjectsPoll = pollDetails?.tipo_votacion?.nombre === 'Proyectos';
+    const isCandidatesPoll = pollDetails?.tipo_votacion?.nombre === 'Candidatas';
+    const hasVotes = data.length > 0 && data.some(p => 
+        (p as ProjectResult).totalScore > 0 || 
+        (p as CandidateResult).options?.some(o => o.count > 0)
+    );
 
-// --- INICIO DE LA LÓGICA DE DATOS CORREGIDA ---
+    useEffect(() => {
+        if (isNaN(pollId)) {
+            setError("ID de encuesta no válido.");
+            setLoading(false);
+            return;
+        }
 
-      const results = new Map<number, QuestionData>();
-      const optionMap = new Map(opts.map(o => [o.id_opcion, o.texto_opcion]));
+        const loadData = async (isInitialLoad = false) => {
+            if (isInitialLoad) setLoading(true);
 
-      // Procesamos siempre por pregunta para TODOS los tipos de encuesta.
-      qs.forEach(q => {
-        // 1. Filtra las opciones que pertenecen a esta pregunta
-        const questionOptions = opts
-          .filter(o => o.id_pregunta === q.id_pregunta)
-          .map(o => ({
-            name: o.texto_opcion,
-            count: 0,
-            url_imagen: o.url_imagen,
-            voteCount: 0, // para promedios
-            sumOfValues: 0 // para promedios
-          }));
+            const { data: poll, error: pollErr } = await supabase.from('encuestas')
+                .select('*, tipo_votacion:id_tipo_votacion(nombre)')
+                .eq('id_encuesta', pollId).single();
+                
+            if (pollErr || !poll) { setError('Encuesta no encontrada.'); setLoading(false); return; }
+            setPollDetails(poll);
 
-        // 2. Filtra los votos que pertenecen a esta pregunta
-        const questionVotes = votes?.filter(v => v.id_pregunta === q.id_pregunta) || [];
-        
-        // 3. Calcula los resultados para esta pregunta específica
-        questionVotes.forEach(v => {
-          const optionName = optionMap.get(v.id_opcion_seleccionada!);
-          const option = questionOptions.find(o => o.name === optionName);
-
-          if (option) {
-            // Unificamos el conteo para tipo 1 (una opción) y 2 (múltiple opción)
-            if (id_tipo_votacion === 1 || id_tipo_votacion === 2) { 
-              option.count++;
-            } else if (id_tipo_votacion === 3) { // Puntuación
-              option.sumOfValues! += v.valor_puntuacion!;
-              option.voteCount!++;
-            } else if (id_tipo_votacion === 4) { // Ranking
-              option.sumOfValues! += v.orden_ranking!;
-              option.voteCount!++;
+            if (poll.tipo_votacion?.nombre === 'Proyectos') {
+                await processProjectResults(poll);
+            } else if (poll.tipo_votacion?.nombre === 'Candidatas') {
+                await processCandidateResults(poll);
+            } else {
+                setError("Este tipo de encuesta no tiene vista de resultados en tiempo real.");
+                setData([]);
             }
-          }
-        });
 
-        // 4. Calcula el promedio final si es de Puntuación o Ranking
-        if (id_tipo_votacion === 3 || id_tipo_votacion === 4) {
-          questionOptions.forEach(opt => {
-            opt.count = opt.voteCount! > 0 ? parseFloat((opt.sumOfValues! / opt.voteCount!).toFixed(2)) : 0;
-          });
-        }
+            if (isInitialLoad) setLoading(false);
+        };
+
+        const processProjectResults = async (poll: PollDetails) => {
+            const { data: projects, error: pErr } = await supabase.from('preguntas_encuesta').select('id_pregunta, texto_pregunta, url_imagen').eq('id_encuesta', poll.id_encuesta);
+            if (pErr) { setError(`Error al cargar proyectos: ${pErr.message}`); return; }
+
+            const { data: judges, error: jErr } = await supabase.from('encuesta_jueces').select('jueces(id_juez, nombre_completo, url_imagen)').eq('id_encuesta', poll.id_encuesta);
+
+            console.log('JUECES OBTENIDOS DE LA BD:', judges); // <--- AÑADE ESTA LÍNEA
+
+            if (jErr) { setError(`Error al cargar jueces: ${jErr.message}`); return; }
+
+            const { data: votes, error: vErr } = await supabase.from('votos_respuestas').select('id_pregunta, valor_puntuacion, id_juez').eq('id_encuesta', poll.id_encuesta);
+            if (vErr) { setError(`Error al cargar votos: ${vErr.message}`); return; }
+            
+            const assignedJudges = judges?.map(j => j.jueces).flat().filter(Boolean) as Judge[] || [];
+            
+            const uniqueJudgeNames = Array.from(new Set(assignedJudges.map(j => j.nombre_completo)));
+            setJudgeNames(uniqueJudgeNames);
+
+            const results: ProjectResult[] = projects!.map(p => {
+                const projectVotes = votes?.filter(v => v.id_pregunta === p.id_pregunta) || [];
+                const judgeVotes = projectVotes.filter(v => v.id_juez !== null);
+                const publicVotes = projectVotes.filter(v => v.id_juez === null);
+                setTotalVotes(publicVotes.length);
+
+                const judgeScores = assignedJudges.map(judge => {
+                    const vote = judgeVotes.find(v => v.id_juez === judge.id_juez);
+                    return { 
+                        name: judge.nombre_completo, 
+                        score: vote ? vote.valor_puntuacion : null,
+                        imageUrl: judge.url_imagen 
+                    };
+                });
+                
+                const publicSum = publicVotes.reduce((acc, v) => acc + (v.valor_puntuacion || 0), 0);
+                const publicAverage = publicVotes.length > 0 ? (publicSum / publicVotes.length) : 0;
+                const publicScore = publicAverage || 0;
+                const totalJudgeScore = judgeScores.reduce((acc, j) => acc + (j.score || 0), 0);
+                const totalScore = (totalJudgeScore || 0) + (publicScore || 0);
+
+                return { id: p.id_pregunta, name: p.texto_pregunta, imageUrl: p.url_imagen, judgeScores, publicScore, totalScore };
+            });
+            results.sort((a, b) => b.totalScore - a.totalScore);
+            setData(results);
+        };
+
+        const processCandidateResults = async (poll: PollDetails) => {
+            const { data: questions, error: qErr } = await supabase.from('preguntas_encuesta').select('id_pregunta, texto_pregunta, url_imagen').eq('id_encuesta', poll.id_encuesta);
+            if (qErr) { setError(`Error al cargar preguntas: ${qErr.message}`); return; }
+
+            const questionIds = questions!.map(q => q.id_pregunta);
+            if (questionIds.length === 0) { setData([]); return; }
+
+            const { data: options, error: oErr } = await supabase.from('opciones_pregunta').select('*').in('id_pregunta', questionIds);
+            if (oErr) { setError(`Error al cargar opciones: ${oErr.message}`); return; }
+
+            const { data: votes, error: vErr } = await supabase.from('votos_respuestas').select('id_pregunta, id_opcion_seleccionada').in('id_pregunta', questionIds);
+            if (vErr) { setError(`Error al cargar votos: ${vErr.message}`); return; }
+            
+            setTotalVotes(votes?.length || 0);
+
+            const results: CandidateResult[] = questions!.map(q => {
+                const questionVotes = votes?.filter(v => v.id_pregunta === q.id_pregunta) || [];
+                const questionOptions = options!.filter(o => o.id_pregunta === q.id_pregunta);
+                const processedOptions = questionOptions.map(opt => {
+                    const voteCount = questionVotes.filter(v => v.id_opcion_seleccionada === opt.id_opcion).length || 0;
+                    return { name: opt.texto_opcion, count: voteCount, url_imagen: opt.url_imagen };
+                });
+                processedOptions.sort((a, b) => b.count - a.count);
+                return { id_pregunta: q.id_pregunta, texto_pregunta: q.texto_pregunta, url_imagen: q.url_imagen, options: processedOptions };
+            });
+            setData(results);
+        };
         
-        // 5. Añade la pregunta con sus resultados al mapa
-        results.set(q.id_pregunta, {
-          id_pregunta: q.id_pregunta,
-          texto_pregunta: q.texto_pregunta,
-          url_imagen: q.url_imagen,
-          options: questionOptions
-        });
-      });
-      
+        loadData(true);
 
-      // La lógica de ordenamiento se aplica a cada pregunta individualmente
-      results.forEach(questionData => {
-        if (id_tipo_votacion === 4) { // Ranking (menor es mejor)
-          questionData.options.sort((a, b) => a.count - b.count);
-        } else { // El resto (mayor es mejor)
-          questionData.options.sort((a, b) => b.count - a.count);
+        const channel = supabase.channel(`realtime-poll-${pollId}`);
+        channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'votos_respuestas', filter: `id_encuesta=eq.${pollId}` },
+            () => loadData(false)
+        ).subscribe();
+        
+        return () => { supabase.removeChannel(channel); };
+    }, [pollId]);
+
+    useEffect(() => {
+        if (!pollDetails || pollDetails.estado !== 'activa' || !pollDetails.duracion_segundos || !pollDetails.fecha_activacion) {
+            setTimeLeft(null); 
+            return;
         }
-      });
-      
-      setData(Array.from(results.values()));
-
-      // --- FIN DE LA LÓGICA DE DATOS CORREGIDA ---
-      
-      if (isInitialLoad) {
-        setLoading(false);
-      }
-    };
-
-    // --- Lógica de Realtime ---
-    const channel = supabase.channel(`realtime-poll-${pollIdFromUrl}`);
-
-    const init = async () => {
-      // 1. Hacemos la carga inicial de todos los datos.
-      await loadData(true);
-
-      // 2. Después de la carga, configuramos la suscripción si la encuesta está activa.
-      const { data: pollData } = await supabase.from('encuestas').select('estado, id_encuesta').eq('id_encuesta', pollIdFromUrl).single();
-      if (pollData?.estado === 'activa') {
-        const { data: qs } = await supabase.from('preguntas_encuesta').select('id_pregunta').eq('id_encuesta', pollData.id_encuesta);
-        const questionIds = qs ? qs.map(q => q.id_pregunta) : [];
-
-        if (questionIds.length > 0) {
-          channel.on(
-            'postgres_changes',
-            { 
-              event: 'INSERT', 
-              schema: 'public', 
-              table: 'votos_respuestas',
-              // Filtro eficiente: solo escuchamos votos de las preguntas de esta encuesta
-              filter: `id_pregunta=in.(${questionIds.join(',')})`
-            },
-            (payload) => {
-              console.log('¡Nuevo voto recibido!', payload);
-              loadData(false); // Recargamos los datos para actualizar la vista
+        const endTime = new Date(pollDetails.fecha_activacion).getTime() + pollDetails.duracion_segundos * 1000;
+        const interval = setInterval(() => {
+            const now = Date.now();
+            const remaining = Math.round((endTime - now) / 1000);
+            if (remaining <= 0) {
+                setTimeLeft(0); 
+                clearInterval(interval); 
+                handleEndPoll(true);
+            } else {
+                setTimeLeft(remaining);
             }
-          ).subscribe();
-        }
-      }
-    };
-
-
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [pollDetails]);
     
-    init();
-
-    // 3. Limpieza: Nos aseguramos de cancelar la suscripción al salir de la página.
-    return () => {
-      supabase.removeChannel(channel);
+    const showWinnerModal = () => {
+        if (!pollDetails || !hasVotes) return;
+    
+        const resultsByQuestionHtml = data.map(qData => {
+            const isProject = 'totalScore' in qData;
+            const questionTitle = isProject ? (qData as ProjectResult).name : (qData as CandidateResult).texto_pregunta;
+            const options = isProject 
+                ? (data as ProjectResult[]).map(p => ({ name: p.name, count: p.totalScore, url_imagen: p.imageUrl })).sort((a, b) => b.count - a.count)
+                : (qData as CandidateResult).options;
+            
+            if (options.length === 0) return '';
+    
+            const resultsHtml = options.map((opt, index) => `
+                <li class="${styles.resultsLi}">
+                    <span class="${styles.rankNumber}">${index + 1}.</span>
+                    ${opt.url_imagen ? `<img src="${opt.url_imagen}" alt="${opt.name}" class="${styles.resultsImg}" />` : ''}
+                    <span class="${styles.resultsName}">${opt.name}</span>
+                    <span class="${styles.resultsCount}">${isProject ? `${(opt.count as number).toFixed(2)} pts` : `${opt.count} votos`}</span>
+                </li>`).join('');
+    
+            return `
+                <div class="${styles.questionResultBlock}">
+                    ${isCandidatesPoll ? `<h3 class="${styles.questionResultTitle}">${questionTitle}</h3>` : ''}
+                    <ol class="${styles.resultsOl}">${resultsHtml}</ol>
+                </div>`;
+        }).join(isProjectsPoll ? '' : `<hr class="${styles.questionSeparator}" />`);
+    
+        Swal.fire({
+            title: `<span class="${styles.winnerTitle}"> ¡Resultados Finales! </span>`,
+            html: `<p class="${styles.pollTitleModal}">Encuesta: "${pollDetails.titulo}"</p>${resultsByQuestionHtml}`,
+            confirmButtonText: 'Compartir como Imagen',
+            showCloseButton: true,
+            width: '600px',
+            customClass: {
+                title: styles.winnerTitle,
+            }
+        }).then((result) => { if (result.isConfirmed) { handleShareResults(); } });
     };
 
-  }, [params.id]);
-
-const showWinnerModal = () => {
-    if (!data || data.length === 0) return;
-    const pollType = pollDetails?.id_tipo_votacion;
-
-    // Construimos el HTML para cada pregunta
-    const resultsByQuestionHtml = data.map(questionData => {
-      const winner = questionData.options[0];
-      if (!winner) return ''; // Si una pregunta no tiene opciones/votos, la saltamos.
-
-      const resultsHtml = questionData.options.map((opt, index) => `
-        <li class="${styles.resultsLi}">
-          <span class="${styles.rankNumber}">${index + 1}.</span>
-          ${opt.url_imagen ? `<img src="${opt.url_imagen}" alt="${opt.name}" class="${styles.resultsImg}" />` : ''}
-          <span class="${styles.resultsName}">${opt.name}</span>
-          <span class="${styles.resultsCount}">${pollType === 1 || pollType === 2 ? `${opt.count} votos` : `${opt.count.toFixed(2)} pts`}</span>
-        </li>`).join('');
-
-      return `
-        <div class="${styles.questionResultBlock}">
-          <h3 class="${styles.questionResultTitle}">${questionData.texto_pregunta}</h3>
-          <p class="${styles.winnerTextSmall}">
-            <Crown size={18} /> 🏆 Ganador: <strong class="${styles.winnerNameSmall}">${winner.name}</strong> 
-            con ${pollType === 1 || pollType === 2 ? `${winner.count} votos` : `${winner.count.toFixed(2)} pts`}
-          </p>
-          <ol class="${styles.resultsOl}">${resultsHtml}</ol>
-        </div>
-      `;
-    }).join('<hr class="${styles.questionSeparator}" />');
-
-
-    Swal.fire({
-      title: `<span class="${styles.winnerTitle}"><Crown size={28} /> ¡Resultados Finales! <Crown size={28} /></span>`,
-      html: `<p class="${styles.pollTitleModal}">Encuesta: "${pollDetails?.titulo}"</p>
-             ${resultsByQuestionHtml}`,
-      confirmButtonText: 'Compartir Resultados como Imagen',
-      showCloseButton: true,
-      width: '600px', // Un poco más ancho para acomodar más info
-    }).then((result) => { if (result.isConfirmed) { handleShareResults(); } });
-  };
-
-  const handleEndPoll = async () => {
-    if (!pollDetails) return;
-    const result = await Swal.fire({
-      title: '¿Finalizar la encuesta?', text: "Una vez finalizada, ya no se aceptarán más votos.", icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#3085d6', confirmButtonText: 'Sí, finalizar', cancelButtonText: 'Cancelar'
-    });
-    if (result.isConfirmed) {
-      const { error } = await supabase.from('encuestas').update({ estado: 'finalizada' }).eq('id_encuesta', pollDetails.id_encuesta);
-      if (error) { Swal.fire('Error', `No se pudo finalizar la encuesta: ${error.message}`, 'error'); }
-      else {
-        setPollDetails(p => p ? { ...p, estado: 'finalizada' } : null);
-        setShowConfetti(true);
-        setTimeout(() => setShowConfetti(false), 8000);
-        showWinnerModal();
-      }
-    }
-  };
-
-  const handleShareResults = async () => {
-    if (!shareableResultRef.current) {
-      Swal.fire('Error', 'No se pudo generar la imagen de resultados.', 'error');
-      return;
-    }
-
-    // 1) Clona TODO el contenedor (clases + contenido)
-    const original = shareableResultRef.current;
-    const clone = original.cloneNode(true) as HTMLElement;
-
-    // 2) Añade la clase que hace visible + centra
-    clone.classList.add(styles.shareableResultsVisible);
-
-    // 3) Forza estilos inline para off-screen
-    const { width, height } = original.getBoundingClientRect();
-    Object.assign(clone.style, {
-      position:   'absolute',
-      top:        '-9999px',
-      left:       '0px',
-      display:    'block',
-      visibility: 'visible',
-      opacity:    '1',
-      width:      `${width}px`,
-      height:     `${height}px`,
-      background: '#ffffff',
-    });
-
-    document.body.appendChild(clone);
-
-    try {
-      // 4) Pre-carga imágenes internas como data-URLs (evita CORS)
-      const imgs = Array.from(clone.querySelectorAll('img'));
-      await Promise.all(imgs.map(async img => {
-        if (img.src && !img.src.startsWith('data:')) {
-          const res  = await fetch(img.src);
-          const blob = await res.blob();
-          img.src     = await new Promise<string>(resolve => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-          });
+    const handleShareResults = async () => {
+        const elementToCapture = shareableResultRef.current;
+        if (!elementToCapture) {
+            Swal.fire('Error', 'No se pudo generar la imagen.', 'error');
+            return;
         }
-      }));
+        
+        Swal.fire({ title: 'Generando imagen...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-      // 5) Pequeño delay para asegurar repaint
-      await new Promise(r => setTimeout(r, 100));
+        try {
+            const canvas = await html2canvas(elementToCapture, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+            const dataUrl = canvas.toDataURL('image/png');
+            const blob = await (await fetch(dataUrl)).blob();
+            const file = new File([blob], 'resultados-encuesta.png', { type: 'image/png' });
+            
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    title: `Resultados de: ${pollDetails!.titulo}`,
+                    text:  `🏆 ¡Consulta los resultados de la encuesta!`,
+                    files: [file],
+                });
+                Swal.close();
+            } else {
+                const link = document.createElement('a');
+                link.download = 'resultados-encuesta.png';
+                link.href = dataUrl;
+                link.click();
+                Swal.fire('Descargado', 'Imagen de resultados guardada.', 'success');
+            }
+        } catch (err) {
+            console.error('Error al generar la imagen:', err);
+            Swal.fire('Error', 'No se pudo crear la imagen para compartir.', 'error');
+        }
+    };
 
-      // 6) Captura con html2canvas
-      const canvas = await html2canvas(clone, {
-        useCORS:         true,
-        backgroundColor: '#ffffff',
-        scale:           2.5,
-        width, height,
-      });
-      const dataUrl = canvas.toDataURL('image/png');
+    const handleShare = () => {
+        if (!pollDetails) return;
+        const canvas = document.getElementById('hidden-qr-canvas') as HTMLCanvasElement;
+        if (!canvas) { Swal.fire('Error', 'No se pudo generar el código QR.', 'error'); return; }
+        const qrImageUrl = canvas.toDataURL('image/png');
+        Swal.fire({
+            title: 'Comparte tu Encuesta',
+            html: `<div class="${styles.shareModalContent}">
+                    <p>Los participantes pueden escanear este código para votar.</p>
+                    <div class="${styles.qrContainerModal}"><img src="${qrImageUrl}" alt="Código QR" style="width: 200px; height: 200px;" /></div>
+                    <div class="${styles.shareInfo}">
+                        <strong>Enlace:</strong><input type="text" value="${pollDetails.url_votacion}" readonly class="${styles.shareInput}" onclick="this.select()" />
+                        <strong>Código:</strong><input type="text" value="${pollDetails.codigo_acceso}" readonly class="${styles.shareInput}" onclick="this.select()" />
+                    </div>
+                    </div>`,
+            showCloseButton: true, showConfirmButton: false, width: '400px',
+        });
+    };
 
-      // 7) Comparte o descarga
-      const blob = await (await fetch(dataUrl)).blob();
-      const file = new File([blob], 'resultados-encuesta.png', { type: 'image/png' });
-      const winner = data[0].options[0];
-      const shareData = {
-        title: `Resultados de: ${pollDetails!.titulo}`,
-        text:  `🏆 ¡El ganador es: ${winner.name}!`,
-        files: [file],
-      };
-      Swal.close();
+    const handleEndPoll = async (isAuto = false) => {
+        if (!pollDetails || pollDetails.estado !== 'activa') return;
+        const endPollLogic = async () => {
+            const { error } = await supabase.from('encuestas').update({ estado: 'finalizada' }).eq('id_encuesta', pollDetails.id_encuesta);
+            if (error) { Swal.fire('Error', `No se pudo finalizar la encuesta: ${error.message}`, 'error'); } 
+            else {
+                setPollDetails(p => p ? { ...p, estado: 'finalizada' } : null);
+                setShowConfetti(true);
+                setTimeout(() => setShowConfetti(false), 8000);
+                if(isAuto) Swal.fire('¡Tiempo Terminado!', 'La votación ha finalizado automáticamente.', 'info').then(() => showWinnerModal());
+                else showWinnerModal();
+            }
+        };
+        if(isAuto) {
+            await endPollLogic();
+        } else {
+            const result = await Swal.fire({ title: '¿Finalizar la encuesta?', text: "Ya no se aceptarán más votos.", icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, finalizar' });
+            if (result.isConfirmed) await endPollLogic();
+        }
+    };
+    
+    const formatTime = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
 
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share(shareData);
-      } else {
-        const link = document.createElement('a');
-        link.download = 'resultados-encuesta.png';
-        link.href     = dataUrl;
-        link.click();
-        Swal.fire('Descargado', 'Imagen de resultados guardada.', 'success');
-      }
+    // --- FUNCIÓN NUEVA: SEMÁFORO DE PUNTUACIÓN ---
+    const getScoreColor = (score: number, maxScore: number) => {
+        if (maxScore === 0) return styles.scoreRed; // Evita división por cero
+        const percentage = (score / maxScore) * 100;
+        if (percentage < 35) return styles.scoreRed;
+        if (percentage < 70) return styles.scoreOrange;
+        return styles.scoreGreen;
+    };
+    
+    if (loading) return <p className={styles.info}>Cargando resultados...</p>;
+    if (error) return <p className={styles.error}>{error}</p>;
+    if (!pollDetails) return <p className={styles.info}>No se encontraron detalles de la encuesta.</p>;
 
-    } catch (err) {
-      console.error('Error generando imagen:', err);
-      Swal.fire('Error', 'No se pudo crear la imagen.', 'error');
-    } finally {
-      document.body.removeChild(clone);
-    }
-  };
-  
-  const handleShare = () => {
-    if (!pollDetails) return;
-    const canvas = document.getElementById('hidden-qr-canvas') as HTMLCanvasElement;
-    if (!canvas) { Swal.fire('Error', 'No se pudo generar el código QR.', 'error'); return; }
-    const qrImageUrl = canvas.toDataURL('image/png');
-    Swal.fire({
-      title: 'Comparte tu Encuesta',
-      html: `<div class="${styles.shareModalContent}">
-          <p>Los participantes pueden escanear el código QR o usar el enlace y el código de acceso.</p>
-          <div class="${styles.qrContainerModal}"><img src="${qrImageUrl}" alt="Código QR" style="width: 200px; height: 200px;" /></div>
-          <div class="${styles.shareInfo}">
-            <strong>Enlace:</strong>
-            <input type="text" value="${pollDetails.url_votacion}" readonly class="${styles.shareInput}" />
-            <strong>Código de Acceso:</strong>
-            <input type="text" value="${pollDetails.codigo_acceso}" readonly class="${styles.shareInput}" />
-          </div></div>`,
-      showCloseButton: true, showConfirmButton: false, width: '400px',
-    });
-  };
+    const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A28FDF'];
 
-  if (loading) return <p className={styles.info}>Cargando resultados...</p>;
-  if (error) return <p className={styles.error}>{error}</p>;
-  if (!pollDetails) return <p className={styles.info}>No se encontraron detalles de la encuesta.</p>;
+    // Calcula el puntaje máximo posible para cada proyecto
+    // Cada juez puede dar hasta 10 puntos, el público también (promedio máximo 10)
+    const maxPossibleScore = judgeNames.length * 10 + 10;
 
-  const { titulo: pollTitle, id_tipo_votacion: pollType, estado } = pollDetails;
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A28FDF', '#FF6B6B', '#5A9BD5', '#FFD700', '#8A2BE2', '#DC143C', '#228B22', '#FFDAB9'];
-  
-  const renderCharts = () => {
-    return data.map(qData => {
-      const chartHeight = qData.options.length > 5 ? 400 : 300;
-      return (
-        <div key={qData.id_pregunta} className={styles.chartBlock}>
-          {(data.length > 1 || pollType !== 1) && ( <h2 className={styles.questionTitle}>{qData.texto_pregunta}</h2> )}
-          {qData.url_imagen && ( <Image src={qData.url_imagen} alt={`Imagen para la pregunta: ${qData.texto_pregunta}`} width={200} height={150} className={styles.questionImg} style={{ objectFit: 'contain' }} /> )}
-          {pollType === 4 && ( <p className={styles.rankingInfo}>Menor valor = mejor ranking</p> )}
-{(pollType === 1 || pollType === 2 || pollType === 3) && view === 'pie' ? (
-    <ResponsiveContainer width="100%" height={chartHeight}>
-        <PieChart>
-            <Pie 
-                data={qData.options} 
-                dataKey="count" 
-                nameKey="name" 
-                cx="50%" 
-                cy="50%" 
-                outerRadius={100} 
-                // Etiqueta inteligente: muestra % para votos, y valor para puntuación
-                label={({ name, percent, count }) => 
-                    pollType === 3 
-                    ? `${name}: ${count.toFixed(2)}` 
-                    : `${name} ${((percent || 0) * 100).toFixed(0)}%`
-                }
-            >
-                {qData.options.map((_, i) => (<Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />))}
-            </Pie>
-            {/* Tooltip inteligente: muestra "votos" o "pts (Promedio)" */}
-            <Tooltip formatter={(value: number) => 
-                pollType === 3 
-                ? `${value.toFixed(2)} pts (Promedio)` 
-                : `${value} votos`
-            } />
-            <Legend />
-        </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <ResponsiveContainer width="100%" height={chartHeight}>
-              <BarChart data={qData.options}>
-                <XAxis dataKey="name" interval={0} angle={qData.options.length > 3 ? -30 : 0} textAnchor={qData.options.length > 3 ? "end" : "middle"} height={qData.options.length > 3 ? 100 : 40} />
-                <YAxis allowDecimals={pollType === 3 || pollType === 4} label={{ value: pollType === 1 || pollType === 2 ? 'Número de Votos' : pollType === 3 ? 'Puntuación Promedio' : 'Promedio de Ranking', angle: -90, position: 'insideLeft' }} domain={pollType === 3 ? [0, 10] : [0, 'auto']} />
-                <Tooltip formatter={(value: number) => pollType === 1 || pollType === 2 ? `${value} votos` : `${value.toFixed(2)} (Promedio)`} />
-                <Bar dataKey="count" fill={pollType === 1 ? '#8884d8' : pollType === 2 ? '#4CAF50' : pollType === 3 ? '#20B2AA' : '#FF5733'} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-          <div className={styles.optionList}>
-            {qData.options.map((opt, i) => (
-              <div key={i} className={styles.optionItem}>
-                {opt.url_imagen && (<Image src={opt.url_imagen} alt={opt.name} width={50} height={50} className={styles.optionImg} style={{ objectFit: 'cover' }} />)}
-                        <span className={styles.optionText}>
-                           {/* AÑADIMOS EL INDICADOR DEL GANADOR */}
-                          {i === 0 && <Crown size={16} style={{ color: '#FFD700', marginRight: '8px' }} />}
-                          {opt.name}:{' '}
-                          {pollType === 1 || pollType === 2 ? `${opt.count.toString()} votos` : `${opt.count.toFixed(2)} (Prom.)`}
-                        </span>              </div>
-            ))}
-          </div>
-        </div>
-      );
-    });
-  };
-
-  return (
-    <div className={styles.container}>
-      {showConfetti && <Confetti
-        width={typeof window !== 'undefined' ? window.innerWidth : 0}
-        height={typeof window !== 'undefined' ? window.innerHeight : 0}
-       className={styles.confettiCanvas}
-      />}
-
-      <div className={styles.header}>
-        <button onClick={() => router.back()} className={styles.backButton}>←</button>
-        {pollTitle && <h1 className={styles.mainTitle}>{pollTitle}</h1>}
-        <div className={styles.headerActions}>
-          <button onClick={handleShare} className={styles.shareButton} title="Compartir Encuesta">
-            <Share2 size={20} /> Compartir
-          </button>
-          <button onClick={handleEndPoll} className={styles.endButton} title="Finalizar Encuesta" disabled={estado !== 'activa'}>
-            <PartyPopper size={20} /> Finalizar
-          </button>
-        </div>
-      </div>
-      
-      <div className={styles.totalVotesPanel}>Votos Totales: <span>{totalVotes}</span></div>
-
-      <h2 className={styles.subTitle}>Resultados en tiempo real</h2>
-      {(pollType === 1 || pollType === 2 || pollType === 3) && (
-        <div className={styles.toggleGroup}>
-          <button className={view === 'bar' ? styles.toggleActive : styles.toggleButton} onClick={() => setView('bar')}>Barras</button>
-          <button className={view === 'pie' ? styles.toggleActive : styles.toggleButton} onClick={() => setView('pie')}>Pastel</button>
-        </div>
-      )}
-      {data.length > 0 ? renderCharts() : <p className={styles.info}>Esperando los primeros votos...</p>}
-
-      {pollDetails && (<div style={{ display: 'none' }}><QRCodeCanvas id="hidden-qr-canvas" value={pollDetails.url_votacion} size={200} level="H" includeMargin={true} /></div>)}
-
-      {data.length > 0 && pollDetails && (
-        <div ref={shareableResultRef} className={styles.shareableResultsContainer}>
-          <div className={styles.shareableHeader}>
-            <Crown size={28} />
-            <h2>Resultados Finales</h2>
-            <Crown size={28} />
-          </div>
-          <p className={styles.shareablePollTitle}>Encuesta: &quot;{pollDetails.titulo}&quot;</p>
-          
-          {/* Mapeamos cada pregunta para mostrar sus resultados */}
-          {data.map(questionData => (
-            <div key={questionData.id_pregunta} className={styles.shareableQuestionBlock}>
-              <h3 className={styles.shareableQuestionTitle}>{questionData.texto_pregunta}</h3>
-              {questionData.options.length > 0 && (
-                <div className={styles.shareableWinner}>
-                  <p>El ganador es: <strong>{questionData.options[0].name}</strong></p>
+    return (
+        <div className={styles.container}>
+            {showConfetti && <Confetti width={typeof window !== 'undefined' ? window.innerWidth : 0} height={typeof window !== 'undefined' ? window.innerHeight : 0} className={styles.confettiCanvas} />}
+            <div className={styles.header}>
+                <button onClick={() => router.back()} className={styles.backButton}>←</button>
+                <h1 className={styles.mainTitle}>{pollDetails.titulo}</h1>
+                <div className={styles.headerActions}>
+                    <button onClick={handleShare} className={styles.shareButton} title="Compartir Encuesta"><Share2 size={20} /> Compartir</button>
+                    {timeLeft !== null && (<div className={styles.timer}>Tiempo restante: <strong>{formatTime(timeLeft)}</strong></div>)}
+                    <button onClick={() => handleEndPoll(false)} className={styles.endButton} disabled={pollDetails.estado !== 'activa'}><PartyPopper size={20} /> Finalizar</button>
+                    {pollDetails.estado === 'finalizada' && hasVotes && (
+                        <button onClick={showWinnerModal} className={styles.shareButton}><ImageIcon size={20} /> Ver Resultados</button>
+                    )}
                 </div>
-              )}
-              <ol className={styles.shareableList}>
-                {questionData.options.map((opt, index) => (
-                  <li key={index}>
-                    <span className={styles.shareableRank}>{index + 1}.</span>
-                    {opt.url_imagen && <img src={opt.url_imagen} alt={opt.name} className={styles.shareableImg} />}
-                    <span className={styles.shareableName}>{opt.name}</span>
-                    <span className={styles.shareableCount}>
-                      {pollType === 1 || pollType === 2 ? `${opt.count} votos` : `${opt.count.toFixed(2)} pts`}
-                    </span>
-                  </li>
-                ))}
-              </ol>
             </div>
-          ))}
+            
+            <div className={styles.totalVotesPanel}>{isProjectsPoll ? 'Votos del Público' : 'Votos Totales'}: <span>{totalVotes}</span></div>
+            <h2 className={styles.subTitle}>Resultados en tiempo real</h2>
+            
+            {!hasVotes && <p className={styles.info}>Esperando los primeros votos...</p>}
+
+            {isProjectsPoll && hasVotes && (
+                <div className={styles.projectsContainer}>
+                    <div className={styles.projectsGrid}>
+                        {(data as ProjectResult[]).map((p, index) => (
+                            <div key={p.id} className={styles.projectCard}>
+                                <div className={styles.projectRank}>{index === 0 ? <Crown size={32} /> : `#${index + 1}`}</div>
+                                {p.imageUrl && <Image src={p.imageUrl} alt={p.name} width={150} height={110} className={styles.projectImg} />}
+                                <h3 className={styles.projectName}>{p.name}</h3>
+                                <div className={`${styles.totalScore} ${getScoreColor(p.totalScore, maxPossibleScore)}`}>
+                                    {p.totalScore.toFixed(2)} pts
+                                </div>
+                                <div className={styles.scoreBreakdown}>
+                                    <div className={styles.scoreItem}><span><Users size={16} /> Público (Prom.):</span><strong>{p.publicScore.toFixed(2)} / 10.00</strong></div>
+                                    {p.judgeScores.map((j, jIndex) => (
+                                        <div key={jIndex} className={styles.scoreItem}>
+                                            <span>
+                                                {j.imageUrl ? (
+                                                    <Image src={j.imageUrl} alt={j.name} width={24} height={24} className={styles.judgeAvatar} />
+                                                ) : (
+                                                    <User size={16} />
+                                                )}
+                                                {j.name}:
+                                            </span>
+                                            {j.score !== null ? <strong>{j.score.toFixed(2)} / 10.00</strong> : <em>Pendiente</em>}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    {/* --- INICIO DE LA CORRECCIÓN --- */}
+                    <DynamicChartDisplay
+                        isProjectsPoll={true}
+                        isCandidatesPoll={false}
+                        data={data}
+                        view={view}
+                        COLORS={COLORS}
+                        judgeNames={judgeNames} 
+                        setView={() => {}}// <-- Añadido para cumplir con la interfaz
+                    />
+                    {/* --- FIN DE LA CORRECCIÓN --- */}
+                </div>
+            )}
+            
+            {isCandidatesPoll && hasVotes && (
+                 <div className={styles.candidatesContainer}>
+                    <div className={styles.toggleGroup}>
+                        <button className={view === 'bar' ? styles.toggleActive : styles.toggleButton} onClick={() => setView('bar')}>Barras</button>
+                        <button className={view === 'pie' ? styles.toggleActive : styles.toggleButton} onClick={() => setView('pie')}>Pastel</button>
+                    </div>
+                    {/* Los gráficos de candidatas ahora están dentro de DynamicChartDisplay */}
+                    <DynamicChartDisplay 
+                        isProjectsPoll={false}
+                        isCandidatesPoll={isCandidatesPoll}
+                        data={data}
+                        view={view}
+                        COLORS={COLORS}
+                        setView={setView}
+                        judgeNames={[]} // <-- AÑADE ESTA LÍNEA
+
+                    />
+                </div>
+            )}
+            
+            {pollDetails && (<div style={{ display: 'none' }}><QRCodeCanvas id="hidden-qr-canvas" value={pollDetails.url_votacion} size={200} /></div>)}
+            
+            <div style={{ position: 'fixed', left: '-9999px', top: 0, background: 'white', padding: '1rem', zIndex: -1 }}>
+                <div ref={shareableResultRef} className={styles.shareableResultsContainer}>
+                    <div className={styles.shareableHeader}><Crown size={28} /><h2>Resultados Finales</h2><Crown size={28} /></div>
+                    <p className={styles.shareablePollTitle}>Encuesta: &quot;{pollDetails.titulo}&quot;</p>
+                    {data.map(qData => {
+                        const isProject = 'totalScore' in qData;
+                        const questionTitle = isProject ? (qData as ProjectResult).name : (qData as CandidateResult).texto_pregunta;
+                        const options = isProject 
+                            ? (data as ProjectResult[]).map(p => ({name: p.name, count: p.totalScore, url_imagen: p.imageUrl})).sort((a,b) => b.count - a.count)
+                            : (qData as CandidateResult).options;
+                        
+                        return (
+                            <div key={isProject ? (qData as ProjectResult).id : (qData as CandidateResult).id_pregunta} className={styles.shareableQuestionBlock}>
+                                {data.length > 1 || !isProject ? <h3 className={styles.shareableQuestionTitle}>{questionTitle}</h3> : null}
+                                <ol className={styles.shareableList}>
+                                    {options.map((opt, index) => (
+                                        <li key={index}>
+                                            <span className={styles.shareableRank}>{index + 1}.</span>
+                                            {opt.url_imagen && <img src={opt.url_imagen} alt={opt.name} className={styles.shareableImg} crossOrigin="anonymous" />}
+                                            <span className={styles.shareableName}>{opt.name}</span>
+                                            <span className={styles.shareableCount}>{isProject ? `${(opt.count as number).toFixed(2)} pts` : `${opt.count} votos`}</span>
+                                        </li>
+                                    ))}
+                                </ol>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
         </div>
-      )}
-    </div>
-  )
+    );
 }
