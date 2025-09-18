@@ -1,31 +1,44 @@
-// src/app/dashboard/polls/[id]/edit/page.tsx
 'use client'
 
-import React, { useState, useEffect, ChangeEvent, useRef, Fragment } from 'react'
+import React, { useState, useEffect, ChangeEvent, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Image from 'next/image'
+import { UserPlus, X } from 'lucide-react'
 import { supabase } from '../../../../../lib/supabaseClient'
 import Swal from 'sweetalert2'
 import imageCompression from 'browser-image-compression'
 import styles from './page.module.css'
 
-// Interfaces
-interface Option {
+// Interfaces actualizadas para manejar archivos
+interface EditableOption {
   id_opcion?: number
   texto_opcion: string
-  url_imagen?: string | null
+  url_imagen: string | null
+  imageFile?: File | null
+  previewUrl?: string | null
 }
-interface Question {
+
+interface Judge {
+    id_juez: number;
+    nombre_completo: string;
+    url_imagen: string | null;
+}
+
+interface EditableQuestion {
   id_pregunta?: number
   texto_pregunta: string
-  url_imagen?: string | null
-  opciones: Option[]
+  url_imagen: string | null
+  imageFile?: File | null
+  previewUrl?: string | null
+  opciones: EditableOption[]
 }
+
 interface PollDetail {
   id_encuesta: number
   id_tipo_votacion: number
   titulo: string
   descripcion: string | null
+  tipo_votacion: { nombre: string }
 }
 
 export default function EditPollPage() {
@@ -34,14 +47,21 @@ export default function EditPollPage() {
   const pollId = Number(id)
 
   const [poll, setPoll] = useState<PollDetail | null>(null)
-  const [questions, setQuestions] = useState<Question[]>([])
+  const [questions, setQuestions] = useState<EditableQuestion[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
-  const originalRef = useRef<Question[]>([])
+  // --- AÑADE ESTOS NUEVOS ESTADOS ---
+    const [allJudges, setAllJudges] = useState<Judge[]>([]); // Para la lista completa de jueces
+    const [assignedJudges, setAssignedJudges] = useState<Judge[]>([]); // Para los jueces de esta encuesta
+    const originalAssignedJudgesRef = useRef<Judge[]>([]); // Para comparar al guardar
+    
+  const originalRef = useRef<EditableQuestion[]>([])
 
-  // Carga inicial
+  const isProjects = poll?.tipo_votacion.nombre === 'Proyectos';
+  const isCandidates = poll?.tipo_votacion.nombre === 'Candidatas';
+
   useEffect(() => {
     const load = async () => {
       setLoading(true)
@@ -50,15 +70,42 @@ export default function EditPollPage() {
 
       const { data: pd, error: pe } = await supabase
         .from('encuestas')
-        .select('id_encuesta, id_tipo_votacion, titulo, descripcion')
+        .select('id_encuesta, id_tipo_votacion, titulo, descripcion, tipo_votacion:id_tipo_votacion (nombre)')
         .eq('id_encuesta', pollId)
         .single()
       if (pe || !pd) {
-        setError(pe?.message ?? 'Encuesta no encontrada')
-        setLoading(false)
+        setError(pe?.message ?? 'Encuesta no encontrada');
+        setLoading(false);
         return
       }
-      setPoll(pd)
+      setPoll({
+        ...pd,
+        tipo_votacion: Array.isArray(pd.tipo_votacion) ? pd.tipo_votacion[0] : pd.tipo_votacion
+      })
+
+       // --- AÑADE ESTA LÓGICA PARA CARGAR JUECES ---
+    if (pd.id_tipo_votacion === 4) { // Asumiendo que 4 es Proyectos
+      // 1. Cargar TODOS los jueces disponibles del usuario
+      const { data: allJudgesData, error: allJudgesError } = await supabase
+          .from('jueces')
+          .select('id_juez, nombre_completo, url_imagen')
+          .eq('id_usuario_creador', session.user.id);
+      if (allJudgesError) console.error("Error al cargar todos los jueces:", allJudgesError);
+      else setAllJudges(allJudgesData || []);
+
+      // 2. Cargar los jueces YA ASIGNADOS a esta encuesta
+      const { data: assignedJudgesData, error: assignedError } = await supabase
+          .from('encuesta_jueces')
+          .select('jueces(id_juez, nombre_completo, url_imagen)')
+          .eq('id_encuesta', pollId);
+      
+      if (assignedError) console.error("Error al cargar jueces asignados:", assignedError);
+      else {
+          const currentlyAssigned = assignedJudgesData.map((j: any) => j.jueces).filter(Boolean);
+          setAssignedJudges(currentlyAssigned);
+          originalAssignedJudgesRef.current = currentlyAssigned; // Guardar estado original
+      }
+    }
       
       const { data: qs, error: qe } = await supabase
         .from('preguntas_encuesta')
@@ -68,208 +115,266 @@ export default function EditPollPage() {
         .order('id_opcion', { foreignTable: 'opciones_pregunta', ascending: true });
 
       if (qe) {
-        setError(qe.message)
-        setLoading(false)
+        setError(qe.message);
+        setLoading(false);
         return
       }
       
-      const loaded: Question[] = qs.map(q => ({ ...q, opciones: q.opciones_pregunta || [] }));
+      const loaded: EditableQuestion[] = qs.map(q => ({ ...q, opciones: q.opciones_pregunta || [] }));
 
       setQuestions(loaded)
-      originalRef.current = loaded.map(q => ({
-        ...q,
-        opciones: q.opciones.map(o => ({ ...o }))
-      }))
+      originalRef.current = JSON.parse(JSON.stringify(loaded)); // Deep copy
       setLoading(false)
     }
     load()
   }, [pollId, router])
 
-  // Helper de compresión de imagen
-  const readImage = (cb: (u: string) => void) => async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const handleImageChange = async (
+    file: File,
+    updater: (file: File, previewUrl: string) => void
+  ) => {
     try {
-      const comp = await imageCompression(file, { maxSizeMB: 0.3, maxWidthOrHeight: 800, useWebWorker: true })
-      const r = new FileReader()
-      r.onload = () => cb(r.result as string)
-      r.readAsDataURL(comp)
+      const compressedFile = await imageCompression(file, { maxSizeMB: 0.3, maxWidthOrHeight: 800, useWebWorker: true });
+      const previewUrl = URL.createObjectURL(compressedFile);
+      updater(compressedFile, previewUrl);
     } catch {
-      Swal.fire('Error', 'No se pudo procesar la imagen', 'error')
-      e.target.value = ''
+      Swal.fire('Error', 'No se pudo procesar la imagen', 'error');
     }
-  }
-
-  // Manipulaciones de la UI
-  const handleRemoveQuestion = (qi: number) => setQuestions(qs => qs.filter((_, i) => i !== qi))
-
-  const handleRemoveOption = (qi: number, oi: number) =>
-    setQuestions(qs =>
-      qs.map((q, i) =>
-        i === qi ? { ...q, opciones: q.opciones.filter((_, j) => j !== oi) } : q
-      )
-    )
-
-  const addQuestion = () =>
-    setQuestions(qs => [...qs, {
-      texto_pregunta: '',
-      url_imagen: null,
-      opciones: [{ texto_opcion: '', url_imagen: null }]
-    }])
-
-  const addOption = (qi: number) => {
-    setQuestions(currentQuestions =>
-      currentQuestions.map((question, index) => {
-        if (index === qi) {
-          return {
-            ...question,
-            opciones: [
-              ...question.opciones,
-              { texto_opcion: '', url_imagen: null }
-            ]
-          };
-        }
-        return question;
-      })
-    );
   };
 
-  // Lógica de guardado con todas las mejoras
+  // --- LÓGICA DE GUARDADO TOTALMENTE REHECHA ---
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!poll) return;
     setSaving(true);
     setError(null);
 
-    // 1. Mostrar alerta de "cargando"
     Swal.fire({
       title: 'Guardando cambios...',
-      text: 'Por favor, espera un momento.',
       allowOutsideClick: false,
-      didOpen: () => {
-        Swal.showLoading();
-      },
+      didOpen: () => Swal.showLoading(),
     });
 
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user.id) {
+        Swal.fire('Error', 'Sesión no válida', 'error');
+        return;
+    }
+
+    const filesToDelete = {
+        imagenes_proyectos: [] as string[],
+        imagenes_candidatos: [] as string[],
+    };
+
+    const extractPath = (url: string, bucket: string) => {
+        // Formato esperado: https://<id>.supabase.co/storage/v1/object/public/<bucket>/<path>
+        const bucketPath = `/storage/v1/object/public/${bucket}/`;
+        if (url.includes(bucketPath)) {
+            return decodeURIComponent(url.split(bucketPath)[1]);
+        }
+        return null;
+    };
+
     try {
-      // 2. Actualizar encuesta
-      const { error: pe } = await supabase
-        .from('encuestas')
-        .update({ titulo: poll.titulo, descripcion: poll.descripcion })
-        .eq('id_encuesta', pollId);
-      if (pe) throw pe;
+        // 1. Actualizar título y descripción
+        await supabase.from('encuestas').update({ titulo: poll.titulo, descripcion: poll.descripcion }).eq('id_encuesta', pollId).throwOnError();
+        // --- AÑADE ESTA LÓGICA PARA GUARDAR LOS JUECES ---
+      if (isProjects) {
+        const originalIds = new Set(originalAssignedJudgesRef.current.map(j => j.id_juez));
+        const currentIds = new Set(assignedJudges.map(j => j.id_juez));
+        
+        const judgesToAdd = assignedJudges.filter(j => !originalIds.has(j.id_juez));
+        const judgesToRemove = originalAssignedJudgesRef.current.filter(j => !currentIds.has(j.id_juez));
 
-      // 3. Identificar y borrar preguntas eliminadas
-      const origQs = originalRef.current;
-      const origQIds = origQs.map((q) => q.id_pregunta!).filter(Boolean);
-      const currQIds = questions.map((q) => q.id_pregunta!).filter(Boolean);
-      const toDeleteQ = origQIds.filter((id) => !currQIds.includes(id));
+        // Eliminar asignaciones que ya no están
+        if (judgesToRemove.length > 0) {
+            const idsToRemove = judgesToRemove.map(j => j.id_juez);
+            await supabase.from('encuesta_jueces').delete().eq('id_encuesta', pollId).in('id_juez', idsToRemove).throwOnError();
+        }
 
-      if (toDeleteQ.length > 0) {
-        const deletePromises = toDeleteQ.map((idq) =>
-          supabase.rpc('delete_full_question', { target_qid: idq })
-        );
-        const results = await Promise.all(deletePromises);
-        results.forEach(({ error }) => { if (error) throw error; });
+        // Agregar nuevas asignaciones
+        if (judgesToAdd.length > 0) {
+            const newAssignments = judgesToAdd.map(j => ({
+                id_encuesta: pollId,
+                id_juez: j.id_juez,
+                codigo_acceso_juez: `JUEZ-${pollId}-${j.id_juez}-${crypto.randomUUID().slice(0, 8)}`
+            }));
+            await supabase.from('encuesta_jueces').insert(newAssignments).throwOnError();
+        }
+
+        // Actualizar la referencia original para la próxima vez que se guarde
+        originalAssignedJudgesRef.current = [...assignedJudges];
       }
+        // 2. Procesar preguntas (Insertar, Actualizar y preparar eliminaciones de imágenes)
+        const updatedQuestions = await Promise.all(questions.map(async (q, qi) => {
+            let questionImageUrl = q.url_imagen;
+            const originalQuestion = originalRef.current.find(oq => oq.id_pregunta === q.id_pregunta);
 
-      // 4. Iterar preguntas actuales para actualizar o insertar
-      for (const q of questions) {
-        let qId = q.id_pregunta;
-        if (qId) {
-          // UPDATE de pregunta existente con verificación
-          const { data: updatedQ, error } = await supabase
-            .from('preguntas_encuesta')
-            .update({
-              texto_pregunta: q.texto_pregunta.trim(),
-              url_imagen: q.url_imagen || null,
-            })
-            .eq('id_pregunta', qId)
-            .select();
-          if (error) throw error;
-          if (!updatedQ || updatedQ.length === 0) throw new Error(`Falló la actualización de la pregunta #${qId}. Revisa los permisos (RLS).`);
-        } else {
-          // INSERT de nueva pregunta
-          const { data: newQ, error } = await supabase
-            .from('preguntas_encuesta')
-            .insert({
-              id_encuesta: pollId,
-              id_tipo_votacion: poll.id_tipo_votacion,
-              texto_pregunta: q.texto_pregunta.trim(),
-              url_imagen: q.url_imagen || null,
-            })
-            .select('id_pregunta')
-            .single();
-          if (error || !newQ) throw error;
-          qId = newQ.id_pregunta;
-          q.id_pregunta = qId;
+            // A. Manejar subida de nueva imagen de pregunta
+            if (q.imageFile) {
+                const bucket = isProjects ? 'imagenes_proyectos' : 'imagenes_candidatos';
+                const safeName = q.imageFile.name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+                const filePath = `${session.user.id}/${pollId}-${Date.now()}-${qi}-${safeName}`;
+                
+                const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, q.imageFile);
+                if (uploadError) throw uploadError;
+                const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+                questionImageUrl = urlData.publicUrl;
+
+                // Si había una imagen antes, marcar la vieja para borrar
+                if (originalQuestion?.url_imagen) {
+                    const oldPath = extractPath(originalQuestion.url_imagen, bucket);
+                    if (oldPath) (filesToDelete as any)[bucket].push(oldPath);
+                }
+            }
+            // B. Manejar eliminación de imagen de pregunta (sin reemplazar)
+            else if (!q.url_imagen && originalQuestion?.url_imagen) {
+                 const bucket = isProjects ? 'imagenes_proyectos' : 'imagenes_candidatos';
+                 const oldPath = extractPath(originalQuestion.url_imagen, bucket);
+                 if (oldPath) (filesToDelete as any)[bucket].push(oldPath);
+            }
+            
+            // C. Insertar o Actualizar la pregunta en la BD
+            let questionId = q.id_pregunta;
+            if (questionId) {
+                await supabase.from('preguntas_encuesta').update({ texto_pregunta: q.texto_pregunta, url_imagen: questionImageUrl }).eq('id_pregunta', questionId).throwOnError();
+            } else {
+                const { data: newQ } = await supabase.from('preguntas_encuesta').insert({
+                    id_encuesta: pollId, id_tipo_votacion: poll.id_tipo_votacion,
+                    texto_pregunta: q.texto_pregunta, url_imagen: questionImageUrl
+                }).select('id_pregunta').single().throwOnError();
+                questionId = newQ.id_pregunta;
+            }
+
+            // D. Procesar opciones de la pregunta
+            const updatedOptions = await Promise.all(q.opciones.map(async (opt, oi) => {
+                let optionImageUrl = opt.url_imagen;
+                const originalOption = originalQuestion?.opciones.find(oo => oo.id_opcion === opt.id_opcion);
+
+                if (opt.imageFile) {
+                    const safeName = opt.imageFile.name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+                    const filePath = `${session.user.id}/${pollId}-${Date.now()}-${qi}-${oi}-${safeName}`;
+                    const { error: uploadError } = await supabase.storage.from('imagenes_candidatos').upload(filePath, opt.imageFile);
+                    if (uploadError) throw uploadError;
+                    const { data: urlData } = supabase.storage.from('imagenes_candidatos').getPublicUrl(filePath);
+                    optionImageUrl = urlData.publicUrl;
+                    if (originalOption?.url_imagen) {
+                         const oldPath = extractPath(originalOption.url_imagen, 'imagenes_candidatos');
+                         if(oldPath) filesToDelete.imagenes_candidatos.push(oldPath);
+                    }
+                } else if (!opt.url_imagen && originalOption?.url_imagen) {
+                    const oldPath = extractPath(originalOption.url_imagen, 'imagenes_candidatos');
+                    if(oldPath) filesToDelete.imagenes_candidatos.push(oldPath);
+                }
+
+                if (opt.id_opcion) {
+                    await supabase.from('opciones_pregunta').update({ texto_opcion: opt.texto_opcion, url_imagen: optionImageUrl }).eq('id_opcion', opt.id_opcion).throwOnError();
+                } else {
+                    await supabase.from('opciones_pregunta').insert({ id_pregunta: questionId!, texto_opcion: opt.texto_opcion, url_imagen: optionImageUrl }).throwOnError();
+                }
+                return { ...opt, url_imagen: optionImageUrl };
+            }));
+
+            // Identificar y eliminar opciones borradas de la UI
+            const currentOptionIds = q.opciones.map(opt => opt.id_opcion).filter(Boolean);
+            const optionsToDelete = (originalQuestion?.opciones || []).filter(opt => opt.id_opcion && !currentOptionIds.includes(opt.id_opcion));
+            for (const optToDel of optionsToDelete) {
+                if (optToDel.url_imagen) {
+                    const oldPath = extractPath(optToDel.url_imagen, 'imagenes_candidatos');
+                    if(oldPath) filesToDelete.imagenes_candidatos.push(oldPath);
+                }
+            }
+            if (optionsToDelete.length > 0) {
+                 await supabase.from('opciones_pregunta').delete().in('id_opcion', optionsToDelete.map(o => o.id_opcion!)).throwOnError();
+            }
+            return { ...q, id_pregunta: questionId, opciones: updatedOptions };
+        }));
+
+        // 3. Procesar preguntas borradas de la UI
+        const currentQuestionIds = updatedQuestions.map(q => q.id_pregunta);
+        const questionsToDelete = originalRef.current.filter(q => q.id_pregunta && !currentQuestionIds.includes(q.id_pregunta));
+        for (const qToDel of questionsToDelete) {
+             if (qToDel.url_imagen) {
+                 const bucket = isProjects ? 'imagenes_proyectos' : 'imagenes_candidatos';
+                 const oldPath = extractPath(qToDel.url_imagen, bucket);
+                 if (oldPath) (filesToDelete as any)[bucket].push(oldPath);
+             }
+             for (const optToDel of qToDel.opciones) {
+                 if (optToDel.url_imagen) {
+                    const oldPath = extractPath(optToDel.url_imagen, 'imagenes_candidatos');
+                    if(oldPath) filesToDelete.imagenes_candidatos.push(oldPath);
+                 }
+             }
+        }
+        if (questionsToDelete.length > 0) {
+            await supabase.from('preguntas_encuesta').delete().in('id_pregunta', questionsToDelete.map(q => q.id_pregunta!)).throwOnError();
         }
 
-        // 5. Procesar opciones para la pregunta actual
-        const origOpts = origQs.find((x) => x.id_pregunta === qId)?.opciones || [];
-        const origOIds = origOpts.map((o) => o.id_opcion!).filter(Boolean);
-        const currOIds = q.opciones.map((o) => o.id_opcion!).filter(Boolean);
-
-        // Borrar opciones eliminadas
-        const toDelO = origOIds.filter((id) => !currOIds.includes(id));
-        if (toDelO.length > 0) {
-          const deletePromises = toDelO.map((ido) =>
-            supabase.rpc('delete_full_option', { target_oid: ido })
-          );
-          const results = await Promise.all(deletePromises);
-          results.forEach(({ error }) => { if (error) throw error; });
+        // 4. Eliminar todos los archivos de Storage marcados
+        if (filesToDelete.imagenes_proyectos.length > 0) {
+            await supabase.storage.from('imagenes_proyectos').remove(filesToDelete.imagenes_proyectos);
+        }
+        if (filesToDelete.imagenes_candidatos.length > 0) {
+            await supabase.storage.from('imagenes_candidatos').remove(filesToDelete.imagenes_candidatos);
         }
 
-        // Actualizar o insertar opciones
-        for (const o of q.opciones) {
-          if (o.id_opcion) {
-            // UPDATE de opción existente con verificación
-            const { data: updatedO, error } = await supabase
-              .from('opciones_pregunta')
-              .update({
-                texto_opcion: o.texto_opcion.trim(),
-                url_imagen: o.url_imagen || null,
-              })
-              .eq('id_opcion', o.id_opcion)
-              .select();
-            if (error) throw error;
-            if (!updatedO || updatedO.length === 0) throw new Error(`Falló la actualización de la opción #${o.id_opcion}. Revisa los permisos (RLS).`);
-          } else {
-            // INSERT de nueva opción
-            const { error } = await supabase.from('opciones_pregunta').insert({
-              id_pregunta: qId!,
-              texto_opcion: o.texto_opcion.trim(),
-              url_imagen: o.url_imagen || null,
-            });
-            if (error) throw error;
-          }
-        }
-      }
-
-      // 6. Mostrar alerta de éxito y redirigir
-      Swal.fire(
-        '¡Éxito!',
-        'Se guardaron los cambios.',
-        'success'
-      ).then(() => {
-        router.back();
-      });
+        Swal.fire('¡Éxito!', 'Se guardaron los cambios.', 'success').then(() => {
+            router.push(`/dashboard/polls/${pollId}`); // Volver a la página de detalles
+        });
 
     } catch (err: any) {
-      console.error(err);
-      setError(err.message);
-      // 7. Mostrar alerta de error
-      Swal.fire('Error', err.message, 'error');
+        console.error("Error al guardar:", err);
+        Swal.fire('Error', err.message, 'error');
     } finally {
-      setSaving(false);
+        setSaving(false);
     }
   };
+    const handleRemoveJudge = (judgeId: number) => {
+    setAssignedJudges(current => current.filter(j => j.id_juez !== judgeId));
+  };
+
+  const handleAddJudge = () => {
+    const select = document.getElementById('judge-select') as HTMLSelectElement;
+    if (select.value) {
+      const judgeIdToAdd = Number(select.value);
+      const judgeToAdd = allJudges.find(j => j.id_juez === judgeIdToAdd);
+      if (judgeToAdd && !assignedJudges.some(j => j.id_juez === judgeIdToAdd)) {
+        setAssignedJudges(current => [...current, judgeToAdd]);
+        select.value = ""; // Resetea el dropdown
+      }
+    }
+  };
+  // --- MANIPULACIÓN DE LA UI ---
+  const handleQuestionTextChange = (qi: number, value: string) => {
+    setQuestions(qs => qs.map((q, i) => i === qi ? { ...q, texto_pregunta: value } : q));
+  };
+  const handleOptionTextChange = (qi: number, oi: number, value: string) => {
+    setQuestions(qs => qs.map((q, i) => i === qi ? {
+        ...q, opciones: q.opciones.map((o, j) => j === oi ? { ...o, texto_opcion: value } : o)
+    } : q));
+  };
+  const handleQuestionImageChange = (qi: number, file: File) => {
+    handleImageChange(file, (compressedFile, previewUrl) => {
+        setQuestions(qs => qs.map((q, i) => i === qi ? { ...q, imageFile: compressedFile, previewUrl, url_imagen: '' } : q));
+    });
+  };
+  const handleOptionImageChange = (qi: number, oi: number, file: File) => {
+    handleImageChange(file, (compressedFile, previewUrl) => {
+        setQuestions(qs => qs.map((q, i) => i === qi ? {
+            ...q, opciones: q.opciones.map((o, j) => j === oi ? { ...o, imageFile: compressedFile, previewUrl, url_imagen: '' } : o)
+        } : q));
+    });
+  };
+  const removeQuestion = (qi: number) => setQuestions(qs => qs.filter((_, i) => i !== qi));
+  const removeOption = (qi: number, oi: number) => setQuestions(qs => qs.map((q, i) => i === qi ? { ...q, opciones: q.opciones.filter((_, j) => j !== oi) } : q));
+  const addQuestion = () => setQuestions(qs => [...qs, { texto_pregunta: '', url_imagen: null, opciones: [{ texto_opcion: '', url_imagen: null }] }]);
+  const addOption = (qi: number) => setQuestions(qs => qs.map((q, i) => i === qi ? { ...q, opciones: [...q.opciones, { texto_opcion: '', url_imagen: null }] } : q));
 
   if (loading) return <p className={styles.info}>🔄 Cargando…</p>
   if (error) return <p className={styles.error}>Error: {error}</p>
   if (!poll) return null
 
-  // Renderizado del formulario
+  // --- RENDERIZADO DEL FORMULARIO ---
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -278,7 +383,6 @@ export default function EditPollPage() {
       </div>
 
       <form onSubmit={handleSave} className={styles.form}>
-        {/* Título y Descripción */}
         <div className={styles.formGroup}>
           <label className={styles.label}>Título</label>
           <input value={poll.titulo} onChange={e => setPoll(p => p && ({ ...p, titulo: e.target.value }))} className={styles.input} required />
@@ -287,88 +391,110 @@ export default function EditPollPage() {
           <label className={styles.label}>Descripción</label>
           <textarea value={poll.descripcion || ''} onChange={e => setPoll(p => p && ({ ...p, descripcion: e.target.value }))} className={styles.textarea} rows={3} />
         </div>
+        {/* --- AÑADE TODA ESTA NUEVA SECCIÓN PARA GESTIONAR JUECES --- */}
+        {isProjects && (
+          <fieldset className={styles.judgeManagementSection}>
+            <legend className={styles.legend}>Jueces Asignados</legend>
+            <div className={styles.assignedJudgesGrid}>
+              {assignedJudges.map(judge => (
+                <div key={judge.id_juez} className={styles.judgeCard}>
+                  {judge.url_imagen && <Image src={judge.url_imagen} alt={judge.nombre_completo} width={40} height={40} className={styles.judgeAvatar} />}
+                  <span>{judge.nombre_completo}</span>
+                  <button type="button" onClick={() => handleRemoveJudge(judge.id_juez)} className={styles.removeJudgeBtn}>
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+              {assignedJudges.length === 0 && <p className={styles.noJudgesText}>Aún no hay jueces asignados.</p>}
+            </div>
 
-        {/* Preguntas y Opciones */}
+            <div className={styles.addJudgeForm}>
+              <select id="judge-select" className={styles.select} defaultValue="">
+                <option value="" disabled>Selecciona un juez para agregar...</option>
+                {allJudges
+                  .filter(judge => !assignedJudges.some(assigned => assigned.id_juez === judge.id_juez))
+                  .map(judge => (
+                    <option key={judge.id_juez} value={judge.id_juez}>{judge.nombre_completo}</option>
+                  ))
+                }
+              </select>
+              <button type="button" onClick={handleAddJudge} className={styles.addBtn}>
+                <UserPlus size={18} /> Agregar Juez
+              </button>
+            </div>
+          </fieldset>
+        )}
         {questions.map((q, qi) => (
           <fieldset key={q.id_pregunta || `new-${qi}`} className={styles.questionBlock}>
             <legend className={styles.legend}>
-              Pregunta #{qi + 1}
-              <button type="button" onClick={() => handleRemoveQuestion(qi)} className={styles.removeBtn}>×</button>
+                {isProjects ? `Proyecto #${qi + 1}` : (isCandidates ? 'Candidatas' : `Pregunta #${qi + 1}`)}
+                {(!isCandidates || questions.length > 1) && 
+                    <button type="button" onClick={() => removeQuestion(qi)} className={styles.removeBtn}>×</button>
+                }
             </legend>
             <div className={styles.formGroup}>
-              <input value={q.texto_pregunta} onChange={e => { const t = e.target.value; setQuestions(cs => cs.map((qq, i) => i === qi ? { ...qq, texto_pregunta: t } : qq)) }} className={styles.input} placeholder="Texto de la pregunta" required />
+              <input value={q.texto_pregunta} onChange={e => handleQuestionTextChange(qi, e.target.value)} className={styles.input} placeholder={isProjects ? "Nombre del Proyecto" : "Texto de la pregunta"} required />
             </div>
+            
+            {(isProjects) && (
+              <div className={styles.imageUploadGroup}>
+                <ImageUploader 
+                    imageUrl={q.previewUrl || q.url_imagen}
+                    onImageChange={(file) => handleQuestionImageChange(qi, file)}
+                    onImageRemove={() => setQuestions(qs => qs.map((q, i) => i === qi ? {...q, url_imagen: null, imageFile: null, previewUrl: null} : q))}
+                />
+              </div>
+            )}
 
-            <div className={styles.imageUploadGroup}>
-              {q.url_imagen ? (
-                <div className={styles.imagePreviewContainer}>
-                  <label htmlFor={`q-img-upload-${qi}`} className={styles.imageLabel}>
-                    <Image src={q.url_imagen} alt="Preview" width={80} height={80} className={styles.previewImg} />
-                  </label>
-                  <input
-                    type="file"
-                    id={`q-img-upload-${qi}`}
-                    accept="image/*"
-                    onChange={readImage(url => setQuestions(cs => cs.map((qq, i) => i === qi ? { ...qq, url_imagen: url } : qq)))}
-                    style={{ display: 'none' }}
-                  />
-                  <button type="button" onClick={() => setQuestions(cs => cs.map((qq, i) => i === qi ? { ...qq, url_imagen: null } : qq))} className={styles.removeImageBtn}>X</button>
-                </div>
-              ) : (
-                <input type="file" accept="image/*" onChange={readImage(url => setQuestions(cs => cs.map((qq, i) => i === qi ? { ...qq, url_imagen: url } : qq)))} className={styles.fileInput} />
-              )}
-            </div>
-
-            <div className={styles.optionsSection}>
-              <label className={styles.label}>Opciones</label>
-              {q.opciones.map((opt, oi) => (
-                <div key={opt.id_opcion || `new-opt-${oi}`} className={styles.optionRow}>
-                  <input
-                    value={opt.texto_opcion}
-                    onChange={e => {
-                      const t = e.target.value
-                      setQuestions(cs => cs.map((qq, i) => i === qi ? {
-                        ...qq,
-                        opciones: qq.opciones.map((oo, j) => j === oi ? { ...oo, texto_opcion: t } : oo)
-                      } : qq))
-                    }}
-                    className={styles.input}
-                    placeholder={`Opción #${oi + 1}`}
-                    required
-                  />
-                  {poll.id_tipo_votacion !== 3 && (
-                    <div className={styles.imageUploadGroup}>
-                      {opt.url_imagen ? (
-                        <div className={styles.imagePreviewContainer}>
-                           <label htmlFor={`opt-img-upload-${qi}-${oi}`} className={styles.imageLabel}>
-                             <Image src={opt.url_imagen} alt="Preview" width={40} height={40} className={styles.previewImg} />
-                           </label>
-                           <input
-                              type="file"
-                              id={`opt-img-upload-${qi}-${oi}`}
-                              accept="image/*"
-                              onChange={readImage(url => setQuestions(cs => cs.map((qq, i) => i === qi ? { ...qq, opciones: qq.opciones.map((oo, j) => j === oi ? { ...oo, url_imagen: url } : oo) } : qq)))}
-                              style={{ display: 'none' }}
+            {isCandidates && (
+                <div className={styles.optionsSection}>
+                    <label className={styles.label}>Opciones</label>
+                    {q.opciones.map((opt, oi) => (
+                        <div key={opt.id_opcion || `new-opt-${oi}`} className={styles.optionRow}>
+                            <input value={opt.texto_opcion} onChange={e => handleOptionTextChange(qi, oi, e.target.value)} className={styles.input} placeholder={`Candidata #${oi + 1}`} required />
+                            <ImageUploader 
+                                imageUrl={opt.previewUrl || opt.url_imagen}
+                                onImageChange={(file) => handleOptionImageChange(qi, oi, file)}
+                                onImageRemove={() => setQuestions(qs => qs.map((q, i) => i === qi ? {...q, opciones: q.opciones.map((o, j) => j === oi ? {...o, url_imagen: null, imageFile: null, previewUrl: null} : o)} : q))}
                             />
-                          <button type="button" onClick={() => setQuestions(cs => cs.map((qq, i) => i === qi ? { ...qq, opciones: qq.opciones.map((oo, j) => j === oi ? { ...oo, url_imagen: null } : oo) } : qq))} className={styles.removeImageBtn}>×</button>
+                            <button type="button" onClick={() => removeOption(qi, oi)} className={styles.removeBtn}>×</button>
                         </div>
-                      ) : (
-                        <input type="file" accept="image/*" onChange={readImage(url => setQuestions(cs => cs.map((qq, i) => i === qi ? { ...qq, opciones: qq.opciones.map((oo, j) => j === oi ? { ...oo, url_imagen: url } : oo) } : qq)))} className={styles.fileInput} />
-                      )}
-                    </div>
-                  )}
-                  <button type="button" onClick={() => handleRemoveOption(qi, oi)} className={styles.removeBtn}>×</button>
+                    ))}
+                    <button type="button" onClick={() => addOption(qi)} className={styles.addBtn}>+ Agregar Candidata</button>
                 </div>
-              ))}
-              <button type="button" onClick={() => addOption(qi)} className={styles.addBtn}>+ Agregar Opción</button>
-            </div>
+            )}
           </fieldset>
         ))}
-        <button type="button" onClick={addQuestion} className={styles.addQuestionBtn}>+ Agregar Pregunta</button>
+        
+        {isProjects && <button type="button" onClick={addQuestion} className={styles.addQuestionBtn}>+ Agregar Proyecto</button>}
+        
         <button type="submit" className={styles.submitBtn} disabled={saving}>
           {saving ? 'Guardando…' : 'Guardar Cambios'}
         </button>
       </form>
     </div>
   )
+}
+
+// Componente auxiliar para subir imágenes
+function ImageUploader({ imageUrl, onImageChange, onImageRemove }: {
+    imageUrl: string | null | undefined;
+    onImageChange: (file: File) => void;
+    onImageRemove: () => void;
+}) {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    return (
+        <div className={styles.imageUploadGroup}>
+            {imageUrl ? (
+                <div className={styles.imagePreviewContainer}>
+                    <Image src={imageUrl} alt="Preview" width={80} height={80} className={styles.previewImg} onClick={() => fileInputRef.current?.click()} />
+                    <input ref={fileInputRef} type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && onImageChange(e.target.files[0])} style={{ display: 'none' }} />
+                    <button type="button" onClick={onImageRemove} className={styles.removeImageBtn}>×</button>
+                </div>
+            ) : (
+                <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && onImageChange(e.target.files[0])} className={styles.fileInput} />
+            )}
+        </div>
+    );
 }

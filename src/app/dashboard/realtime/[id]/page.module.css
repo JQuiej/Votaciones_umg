@@ -639,3 +639,202 @@
   margin-bottom: 8px;
 }
 
+/* ===== ESTILOS PARA LA VISTA DE PROYECTOS (MEJORADOS) ===== */
+
+.timer {
+  background-color: #fff;
+  color: #333;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+}
+
+.timer strong {
+  margin-left: 8px;
+  color: #0066cc;
+  font-size: 1.1em;
+}
+
+.projectsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.projectsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.projectCard {
+  background-color: #fff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  border-top: 5px solid #0066cc;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.projectCard:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+}
+
+.projectRank {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #34495e;
+  margin-bottom: 0.5rem;
+  height: 40px;
+}
+
+.projectRank svg {
+  color: #ffc107;
+}
+
+.projectImg {
+  width: 100%;
+  height: 140px;
+  
+  /* Cambia 'cover' por 'fill' */
+  object-fit: contain; 
+  
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.projectName {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 0 0 0.5rem 0;
+  height: 3.5rem; 
+  overflow: hidden;
+}
+
+.totalScore {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #0066cc;
+  margin-bottom: 1rem;
+}
+
+.scoreBreakdown {
+  width: 100%;
+  border-top: 1px solid #eee;
+  padding-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem; /* Aumenta el espacio entre filas */
+}
+
+/* --- CORRECCIÓN DE DISEÑO --- */
+.scoreItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 0.95rem;
+}
+
+.scoreItem span {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #555;
+  text-align: left;
+  margin-right: 1rem; /* Añade margen a la derecha del nombre */
+}
+
+.scoreItem strong, .scoreItem em {
+  white-space: nowrap; /* Evita que el puntaje se parta en dos líneas */
+  font-weight: 600;
+  color: #333;
+}
+/* --- FIN DE CORRECCIÓN --- */
+
+.scoreItem em {
+  color: #999;
+  font-style: italic;
+}
+
+.summaryChart {
+  background-color: #fff;
+  border-radius: 12px;
+  padding: 2rem 1.5rem 1.5rem 0.5rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.summaryChart h3 {
+  text-align: center;
+  margin-top: 0;
+  margin-bottom: 2rem;
+  font-size: 1.5rem;
+  color: #2c3e50;
+}
+
+/* ... (todos tus estilos existentes van aquí arriba) ... */
+
+
+/* --- NUEVO ESTILO PARA LA FOTO DEL JUEZ --- */
+.judgeInfo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem; /* Espacio entre la foto y el nombre */
+}
+
+.judgeAvatar {
+    border-radius: 50%; /* Hace la imagen redonda */
+    object-fit: cover;   /* Se asegura que la imagen cubra el círculo sin deformarse */
+}
+/* ... (tu CSS existente) ... */
+
+/* ===== Estilos para Resultados de Proyectos ===== */
+.scoreItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center; /* Asegura alineación vertical */
+    padding: 4px 0;
+    font-size: 0.9rem;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+/* AÑADIDO: Contenedor para el avatar y el nombre del juez */
+.scoreItem > span {
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Espacio entre imagen y texto */
+}
+
+.scoreItem:last-child {
+    border-bottom: none;
+}
+
+/* AÑADIDO: Estilo para el avatar circular del juez */
+.judgeAvatar {
+    border-radius: 50%;
+    object-fit: cover; /* Evita que la imagen se deforme */
+    width: 24px;   /* Coincide con el JSX */
+    height: 24px;  /* Coincide con el JSX */
+}
+
+/* ... (Añadir al final de tu archivo page.module.css) ... */
+
+/* Colores para el Semáforo de Puntuación */
+.scoreGreen {
+    color: #28a745;
+}
+.scoreOrange {
+    color: #ffc107;
+}
+.scoreRed {
+    color: #dc3545;
+}
