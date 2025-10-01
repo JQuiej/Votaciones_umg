@@ -49,8 +49,8 @@ interface AssignedJudge {
   id_juez: number;
   nombre_completo: string;
   url_imagen: string | null;
-  codigo_acceso_juez: string;
-  votingLink: string;
+  codigo_unico: string; // <-- Usaremos este para el QR
+  portalLink: string; // <-- Nueva propiedad para la URL del portal
 }
 
 export default function PollDetailPage() {
@@ -98,12 +98,11 @@ export default function PollDetailPage() {
       setNewStatus(pd.estado);
 
       // Si la encuesta es de tipo "Proyectos" (ID 3), carga los jueces
-      if (pd.id_tipo_votacion === 4) {
+if (pd.id_tipo_votacion === 4) {
         const { data: judgesData, error: judgesError } = await supabase
           .from('encuesta_jueces')
           .select(`
-            codigo_acceso_juez,
-            jueces (id_juez, nombre_completo, url_imagen)
+            jueces (id_juez, nombre_completo, url_imagen, codigo_unico)
           `)
           .eq('id_encuesta', pollId);
 
@@ -112,13 +111,15 @@ export default function PollDetailPage() {
         } else if (judgesData) {
           const judgesWithLinks = judgesData.map((item: any) => {
             const judge = item.jueces;
-            const votingLink = `${window.location.origin}/vote/${item.codigo_acceso_juez}`;
+            // --- CAMBIO CLAVE ---
+            // Ahora la URL apunta a /vote y pasa el código único como parámetro
+            const portalLink = `${window.location.origin}/vote?code=${judge.codigo_unico}`;
             return {
               id_juez: judge.id_juez,
               nombre_completo: judge.nombre_completo,
               url_imagen: judge.url_imagen,
-              codigo_acceso_juez: item.codigo_acceso_juez,
-              votingLink: votingLink,
+              codigo_unico: judge.codigo_unico,
+              portalLink: portalLink, // Esta URL se usará en el QR
             };
           });
           setAssignedJudges(judgesWithLinks);
@@ -131,21 +132,12 @@ export default function PollDetailPage() {
         .eq('id_encuesta', pollId)
         .order('id_pregunta', { ascending: true });
 
-      if (qe) {
-        setError(qe.message); setLoading(false); return;
-      }
+      if (qe) { setError(qe.message); setLoading(false); return; }
 
       const loaded: Question[] = [];
       for (const q of qs || []) {
-        const { data: opts, error: oe } = await supabase
-          .from('opciones_pregunta')
-          .select('id_opcion,texto_opcion,url_imagen')
-          .eq('id_pregunta', q.id_pregunta)
-          .order('id_opcion', { ascending: true });
-
-        if (oe) {
-          setError(oe.message); setLoading(false); return;
-        }
+        const { data: opts, error: oe } = await supabase.from('opciones_pregunta').select('id_opcion,texto_opcion,url_imagen').eq('id_pregunta', q.id_pregunta).order('id_opcion', { ascending: true });
+        if (oe) { setError(oe.message); setLoading(false); return; }
         loaded.push({ ...q, opciones: opts || [] });
       }
       setQuestions(loaded);
@@ -153,7 +145,7 @@ export default function PollDetailPage() {
     };
     
     fetchPollData();
-  }, [pollId]);
+  }, [pollId, router]);
 
   const [data, setData] = useState<any[]>([]); // Para guardar los resultados de los votos
   const shareableResultRef = useRef<HTMLDivElement>(null); // Para la imagen a compartir
@@ -512,45 +504,50 @@ const handleShowResults = () => {
         </div>
       </div>
       {/* --- INICIO DE LA NUEVA SECCIÓN PARA JUECES --- */}
-    {poll.id_tipo_votacion === 4 && assignedJudges.length > 0 && (
-      <div className={styles.judgesSection}>
-        <h2 className={styles.judgesTitle}>Acceso para Jueces</h2>
-        <div className={styles.judgesContainer}>
-          {assignedJudges.map(judge => (
-            <div key={judge.id_juez} className={styles.judgeCard}>
-              <div className={styles.judgeInfo}>
-                {judge.url_imagen && (
-                  <Image src={judge.url_imagen} alt={judge.nombre_completo} width={50} height={50} className={styles.judgeAvatar} />
-                )}
-                <span>{judge.nombre_completo}</span>
+      {/* --- SECCIÓN ACTUALIZADA PARA MOSTRAR JUECES Y SUS QR --- */}
+      {poll.id_tipo_votacion === 4 && assignedJudges.length > 0 && (
+        <div className={styles.judgesSection}>
+          <h2 className={styles.judgesTitle}>Acceso para Jueces</h2>
+          <div className={styles.judgesContainer}>
+            {assignedJudges.map(judge => (
+              <div key={judge.id_juez} className={styles.judgeCard}>
+                <div className={styles.judgeInfo}>
+                  {judge.url_imagen && (
+                    <Image src={judge.url_imagen} alt={judge.nombre_completo} width={50} height={50} className={styles.judgeAvatar} />
+                  )}
+                  <span>{judge.nombre_completo}</span>
+                </div>
+                
+                <div className={styles.judgeQr}>
+                  {/* --- CAMBIO CLAVE: Usa portalLink en lugar de votingLink --- */}
+                  <QRCode value={judge.portalLink} size={120} level="H" />
+                </div>
+                
+                <div className={styles.judgeLinkContainer}>
+                  {/* Muestra el código único del juez para copiarlo manualmente si es necesario */}
+                  <input type="text" value={judge.codigo_unico} readOnly className={styles.judgeLinkInput} onClick={(e) => (e.target as HTMLInputElement).select()} />
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(judge.codigo_unico);
+                      Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'success',
+                        title: '¡Código copiado!',
+                        showConfirmButton: false,
+                        timer: 1500
+                      });
+                    }}
+                    className={styles.copyButton}
+                  >
+                    Copiar
+                  </button>
+                </div>
               </div>
-              <div className={styles.judgeQr}>
-                <QRCode value={judge.votingLink} size={120} level="H" />
-              </div>
-              <div className={styles.judgeLinkContainer}>
-                <input type="text" value={judge.votingLink} readOnly className={styles.judgeLinkInput} onClick={(e) => (e.target as HTMLInputElement).select()} />
-                <button 
-                  onClick={() => {
-                    navigator.clipboard.writeText(judge.votingLink);
-                    Swal.fire({
-                      toast: true,
-                      position: 'top-end',
-                      icon: 'success',
-                      title: '¡Enlace copiado!',
-                      showConfirmButton: false,
-                      timer: 1500
-                    });
-                  }}
-                  className={styles.copyButton}
-                >
-                  Copiar
-                </button>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
-    )}
+      )}
       {/* --- DIV OCULTO ACTUALIZADO --- */}
       {data.length > 0 && poll && (
         <div ref={shareableResultRef} className={styles.shareableResultsContainer}>

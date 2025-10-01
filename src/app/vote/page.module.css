@@ -1,15 +1,15 @@
-/* ===== Contenedor Principal ===== */
+/* ===== Contenedor Principal y Encabezado ===== */
 .container {
   max-width: 800px;
-  margin: 4rem auto;
-  padding: 2rem;
+  margin: 2rem auto;
+  padding: 1rem;
 }
 
 .title {
   text-align: center;
-  font-size: 2.5rem; /* Hacemos el tamaño consistente */
+  font-size: 2.5rem;
   font-weight: 800;
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
   background: linear-gradient(to right, #a78bfa, #818cf8);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -30,6 +30,8 @@
   padding: 2.5rem;
   border-radius: 12px;
   box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+  max-width: 500px;
+  margin: 4rem auto;
 }
 .loginCard p {
   text-align: center;
@@ -46,12 +48,6 @@
   font-size: 1rem;
   border: 1px solid #ddd;
   border-radius: 8px;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-.input:focus {
-  outline: none;
-  border-color: #0066cc;
-  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.2);
 }
 .button {
   padding: 0.8rem 1.5rem;
@@ -62,77 +58,56 @@
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
 }
-.button:hover {
-  background-color: #005bb5;
+.button:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
 }
 
-/* ===== Vista de Listado de Encuestas ===== */
-/* ===== Vista de Listado de Encuestas ===== */
-
+/* ===== Cabecera de Usuario Logueado ===== */
 .welcomeHeader {
   display: flex;
-  justify-content: center; /* Centra todo el bloque horizontalmente */
-  align-items: center;
+  flex-direction: column; /* Apilado en móvil */
+  align-items: flex-start;
   margin-bottom: 2rem;
-  flex-wrap: wrap;
-  gap: 1.5rem; /* Espacio si el botón "Cambiar Carné" se pone debajo en pantallas pequeñas */
-  position: relative; /* Para el botón de logout si se quiere absoluto */
+  gap: 1rem;
 }
 
 .welcomeUser {
     display: flex;
-    align-items: center; /* Clave: Centra verticalmente el ícono y el texto */
-    gap: 0.75rem;       /* Espacio entre el ícono y el texto */
-    color: #e6dbdb;        /* Color para el ícono y texto (ajústalo a tu gusto) */
+    align-items: center;
+    gap: 0.75rem;
+    color: #333;
 }
 
-/* Regla clave para el título */
 .welcomeHeader .title {
-  margin: 0; /* Elimina los márgenes del h1 que interfieren con la alineación */
+  margin: 0;
   font-size: 1.8rem;
-  line-height: 1; /* Asegura que la altura de línea no añada espacio extra */
+  text-align: left;
+  line-height: 1;
 }
-
-/* ... (resto de tus estilos) ... */
 
 .logoutButton {
-  display: flex;
-  gap: 0.25rem;              /* 3. Reducimos el espacio entre título y descripción */
-  text-align: left;
-  width: 100%;
-  height: 100%;
-  padding: 1.5rem;
-  color: #f9fafb; /* Texto blanco */
-  background-color: #1f2937;
-  border: 1px solid #374151;
-  border-radius: 0.75rem;
+  background: #f1f1f1;
+  color: #333;
+  border: 1px solid #ddd;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease-in-out;
-}
-/* --- Hover con Efecto "Neón" --- */
-.logoutButton:hover {
-  transform: translateY(-5px);
-  border-color: #5cf664;
-  /* Sombra de neón que hemos usado antes */
-  box-shadow: 0 0 25px rgba(139, 92, 246, 0.2);
+  width: 100%; /* Ancho completo en móvil */
 }
 
-.logoutButton:focus-visible {
-  outline: 2px solid #8b5cf6;
-  outline-offset: 2px;
-}
-
+/* ===== Estilos de la Lista de Encuestas ===== */
 .pollList {
   background: #fff;
   padding: 1.5rem;
   border-radius: 12px;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.05);
   margin-bottom: 2rem;
 }
 .listTitle {
@@ -140,29 +115,121 @@
   margin-bottom: 1rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid #eee;
+  font-size: 1.5rem;
 }
+.noPollsMessage {
+    color: #888;
+    padding: 1rem 0;
+    text-align: center;
+}
+
+/* --- ESTILOS RESPONSIVOS PARA CADA ENCUESTA --- */
+
+/* Por defecto (Móvil): Elementos apilados verticalmente */
 .pollItem {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  padding: 1rem 0;
-  border-bottom: 1px solid #f5f5f5;
+  gap: 1rem;
+  padding: 1.5rem 1rem;
+  border-bottom: 1px solid #f0f0f0;
+  text-align: center;
 }
 .pollItem:last-child {
   border-bottom: none;
 }
-.pollItem span {
-  font-size: 1.1rem;
-  font-weight: 500;
+
+.pollImage, .imagePlaceholder {
+  width: 120px;
+  height: 120px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background-color: #f0f0f0;
 }
+
+.imagePlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #adb5bd;
+}
+
+.pollInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.pollQuestionText {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #8b5cf6;
+  margin-bottom: 0.25rem;
+  display: block;
+  text-transform: uppercase;
+}
+
+.pollTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.pollDescription {
+  font-size: 0.9rem;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
 .voteButton, .votedButton, .statusLabel {
-  padding: 0.5rem 1.2rem;
+  width: 100%;
+  justify-content: center;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
   border: none;
   border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s;
+  white-space: nowrap;
 }
+
+/* --- Reglas para pantallas más grandes (Desktop) --- */
+@media (min-width: 768px) {
+  .welcomeHeader {
+    flex-direction: row; /* Vuelve a poner en fila */
+    justify-content: space-between;
+    align-items: center;
+  }
+  .logoutButton {
+    width: auto; /* Ancho automático */
+  }
+
+  .pollItem {
+    flex-direction: row; /* Elementos en horizontal */
+    text-align: left;
+    align-items: center;
+  }
+
+  .pollImage, .imagePlaceholder {
+    width: 80px;
+    height: 80px;
+  }
+  
+  .pollInfo {
+    flex-grow: 1; /* El texto ocupa el espacio disponible */
+  }
+
+  .voteButton, .votedButton, .statusLabel {
+    width: auto; /* Ancho automático para botones */
+    flex-shrink: 0;
+    padding: 0.5rem 1.2rem;
+    margin-top: 0;
+  }
+}
+
+/* --- Estilos de los Botones y Estados --- */
 .voteButton {
   background-color: #28a745;
   color: #fff;
@@ -175,17 +242,15 @@
   color: #fff;
   cursor: not-allowed;
 }
+
 .inactive {
-  color: #999;
+  opacity: 0.6;
+}
+.inactive .pollTitle {
+  color: #6b7280;
 }
 .statusLabel {
-  background-color: #f1f1f1;
-  color: #666;
-  font-weight: 500;
-  cursor: default;
-}
-.noPollsMessage {
-    color: #888;
-    padding: 1rem 0;
-    text-align: center;
+  background-color: #f3f4f6;
+  color: #4b5563;
+  text-transform: capitalize;
 }

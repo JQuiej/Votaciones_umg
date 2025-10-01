@@ -1,4 +1,3 @@
-// src/app/dashboard/realtime/[id]/page.tsx
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -7,7 +6,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { QRCodeCanvas } from 'qrcode.react';
 import Swal from 'sweetalert2';
 import html2canvas from 'html2canvas';
-import { Share2, PartyPopper, Crown, User, Users, Image as ImageIcon } from 'lucide-react';
+import { Share2, PartyPopper, Crown, User, Users, Image as ImageIcon, Maximize, Minimize } from 'lucide-react';
 import { supabase } from '../../../../lib/supabaseClient';
 import Confetti from 'react-confetti';
 import dynamic from 'next/dynamic';
@@ -69,6 +68,7 @@ export default function RealtimePollResultsPage() {
     const [timeLeft, setTimeLeft] = useState<number | null>(null);
     const [showConfetti, setShowConfetti] = useState(false);
     const [judgeNames, setJudgeNames] = useState<string[]>([]);
+    const [isFullscreen, setIsFullscreen] = useState(false); // Estado para pantalla completa
 
     const shareableResultRef = useRef<HTMLDivElement>(null);
 
@@ -115,39 +115,33 @@ export default function RealtimePollResultsPage() {
             if (pErr) { setError(`Error al cargar proyectos: ${pErr.message}`); return; }
 
             const { data: judges, error: jErr } = await supabase.from('encuesta_jueces').select('jueces(id_juez, nombre_completo, url_imagen)').eq('id_encuesta', poll.id_encuesta);
-
-            console.log('JUECES OBTENIDOS DE LA BD:', judges); // <--- AÑADE ESTA LÍNEA
-
             if (jErr) { setError(`Error al cargar jueces: ${jErr.message}`); return; }
 
-            const { data: votes, error: vErr } = await supabase.from('votos_respuestas').select('id_pregunta, valor_puntuacion, id_juez').eq('id_encuesta', poll.id_encuesta);
+            const { data: votes, error: vErr } = await supabase.from('votos_respuestas').select('id_pregunta, valor_puntuacion, id_juez, id_alumno').eq('id_encuesta', poll.id_encuesta);
             if (vErr) { setError(`Error al cargar votos: ${vErr.message}`); return; }
             
             const assignedJudges = judges?.map(j => j.jueces).flat().filter(Boolean) as Judge[] || [];
-            
-            const uniqueJudgeNames = Array.from(new Set(assignedJudges.map(j => j.nombre_completo)));
-            setJudgeNames(uniqueJudgeNames);
+            setJudgeNames(Array.from(new Set(assignedJudges.map(j => j.nombre_completo))));
 
             const results: ProjectResult[] = projects!.map(p => {
                 const projectVotes = votes?.filter(v => v.id_pregunta === p.id_pregunta) || [];
-                const judgeVotes = projectVotes.filter(v => v.id_juez !== null);
-                const publicVotes = projectVotes.filter(v => v.id_juez === null);
+                
+                const judgeVotes = projectVotes.filter(v => v.id_juez !== null && v.id_alumno === null);
+                
+                const publicVotes = projectVotes.filter(v => v.id_alumno !== null || (v.id_juez !== null && !assignedJudges.some(j => j.id_juez === v.id_juez)));
+                
                 setTotalVotes(publicVotes.length);
 
                 const judgeScores = assignedJudges.map(judge => {
                     const vote = judgeVotes.find(v => v.id_juez === judge.id_juez);
-                    return { 
-                        name: judge.nombre_completo, 
-                        score: vote ? vote.valor_puntuacion : null,
-                        imageUrl: judge.url_imagen 
-                    };
+                    return { name: judge.nombre_completo, score: vote ? vote.valor_puntuacion : null, imageUrl: judge.url_imagen };
                 });
                 
                 const publicSum = publicVotes.reduce((acc, v) => acc + (v.valor_puntuacion || 0), 0);
-                const publicAverage = publicVotes.length > 0 ? (publicSum / publicVotes.length) : 0;
-                const publicScore = publicAverage || 0;
+                const publicScore = publicVotes.length > 0 ? (publicSum / publicVotes.length) : 0;
+                
                 const totalJudgeScore = judgeScores.reduce((acc, j) => acc + (j.score || 0), 0);
-                const totalScore = (totalJudgeScore || 0) + (publicScore || 0);
+                const totalScore = totalJudgeScore + publicScore;
 
                 return { id: p.id_pregunta, name: p.texto_pregunta, imageUrl: p.url_imagen, judgeScores, publicScore, totalScore };
             });
@@ -333,9 +327,30 @@ export default function RealtimePollResultsPage() {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // --- FUNCIÓN NUEVA: SEMÁFORO DE PUNTUACIÓN ---
-    const getScoreColor = (score: number, maxScore: number) => {
-        if (maxScore === 0) return styles.scoreRed; // Evita división por cero
+    const toggleFullscreen = () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+            setIsFullscreen(true);
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+                setIsFullscreen(false);
+            }
+        }
+    };
+
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            if (!document.fullscreenElement) {
+                setIsFullscreen(false);
+            }
+        };
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    }, []);
+
+    const getScoreColor = (score: number | null, maxScore: number) => {
+        if (maxScore === 0 || score === null) return styles.scoreGray;
         const percentage = (score / maxScore) * 100;
         if (percentage < 35) return styles.scoreRed;
         if (percentage < 70) return styles.scoreOrange;
@@ -346,30 +361,31 @@ export default function RealtimePollResultsPage() {
     if (error) return <p className={styles.error}>{error}</p>;
     if (!pollDetails) return <p className={styles.info}>No se encontraron detalles de la encuesta.</p>;
 
+    const maxPossibleScore = (judgeNames.length * 10) + 10;
     const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A28FDF'];
 
-    // Calcula el puntaje máximo posible para cada proyecto
-    // Cada juez puede dar hasta 10 puntos, el público también (promedio máximo 10)
-    const maxPossibleScore = judgeNames.length * 10 + 10;
-
     return (
-        <div className={styles.container}>
+        <div className={isFullscreen ? styles.fullscreenContainer : styles.container}>
             {showConfetti && <Confetti width={typeof window !== 'undefined' ? window.innerWidth : 0} height={typeof window !== 'undefined' ? window.innerHeight : 0} className={styles.confettiCanvas} />}
             <div className={styles.header}>
-                <button onClick={() => router.back()} className={styles.backButton}>←</button>
+                {!isFullscreen && <button onClick={() => router.back()} className={styles.backButton}>←</button>}
                 <h1 className={styles.mainTitle}>{pollDetails.titulo}</h1>
                 <div className={styles.headerActions}>
-                    <button onClick={handleShare} className={styles.shareButton} title="Compartir Encuesta"><Share2 size={20} /> Compartir</button>
-                    {timeLeft !== null && (<div className={styles.timer}>Tiempo restante: <strong>{formatTime(timeLeft)}</strong></div>)}
-                    <button onClick={() => handleEndPoll(false)} className={styles.endButton} disabled={pollDetails.estado !== 'activa'}><PartyPopper size={20} /> Finalizar</button>
-                    {pollDetails.estado === 'finalizada' && hasVotes && (
-                        <button onClick={showWinnerModal} className={styles.shareButton}><ImageIcon size={20} /> Ver Resultados</button>
+                    {!isFullscreen && (
+                        <>
+                            <button onClick={handleShare} className={styles.shareButton} title="Compartir Encuesta"><Share2 size={20} /> Compartir</button>
+                            {timeLeft !== null && (<div className={styles.timer}>Tiempo restante: <strong>{formatTime(timeLeft)}</strong></div>)}
+                            <button onClick={() => handleEndPoll(false)} className={styles.endButton} disabled={pollDetails.estado !== 'activa'}><PartyPopper size={20} /> Finalizar</button>
+                        </>
                     )}
+                    <button onClick={toggleFullscreen} className={styles.fullscreenButton} title={isFullscreen ? "Salir de Pantalla Completa" : "Ver en Pantalla Completa"}>
+                        {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
+                    </button>
                 </div>
             </div>
             
-            <div className={styles.totalVotesPanel}>{isProjectsPoll ? 'Votos del Público' : 'Votos Totales'}: <span>{totalVotes}</span></div>
-            <h2 className={styles.subTitle}>Resultados en tiempo real</h2>
+            <div className={styles.totalVotesPanel}>Votos del Público: <span>{totalVotes}</span></div>
+            {!isFullscreen && <h2 className={styles.subTitle}>Resultados en tiempo real</h2>}
             
             {!hasVotes && <p className={styles.info}>Esperando los primeros votos...</p>}
 
@@ -379,13 +395,25 @@ export default function RealtimePollResultsPage() {
                         {(data as ProjectResult[]).map((p, index) => (
                             <div key={p.id} className={styles.projectCard}>
                                 <div className={styles.projectRank}>{index === 0 ? <Crown size={32} /> : `#${index + 1}`}</div>
-                                {p.imageUrl && <Image src={p.imageUrl} alt={p.name} width={150} height={110} className={styles.projectImg} />}
-                                <h3 className={styles.projectName}>{p.name}</h3>
-                                <div className={`${styles.totalScore} ${getScoreColor(p.totalScore, maxPossibleScore)}`}>
-                                    {p.totalScore.toFixed(2)} pts
+                                    <div className={styles.projectImageContainer}>
+                                        {p.imageUrl && (
+                                            <Image 
+                                                src={p.imageUrl} 
+                                                alt={p.name} 
+                                                fill={true} // <<< Usa fill
+                                                className={styles.projectImg} // className aún se usa para object-fit
+                                            />
+                                        )}
+                                    </div>                              <h3 className={styles.projectName}>{p.name}</h3>
+                                                                    <div className={`${styles.totalScore} ${getScoreColor(p.totalScore, maxPossibleScore)}`}>
+                                    {p.totalScore.toFixed(2)}
+                                    <span className={styles.maxScore}> / {maxPossibleScore.toFixed(2)} pts</span>
                                 </div>
                                 <div className={styles.scoreBreakdown}>
-                                    <div className={styles.scoreItem}><span><Users size={16} /> Público (Prom.):</span><strong>{p.publicScore.toFixed(2)} / 10.00</strong></div>
+                                    <div className={styles.scoreItem}>
+                                        <span><Users size={16} /> Público (Prom.):</span>
+                                        <strong className={getScoreColor(p.publicScore, 10)}>{p.publicScore.toFixed(2)} / 10.00</strong>
+                                    </div>
                                     {p.judgeScores.map((j, jIndex) => (
                                         <div key={jIndex} className={styles.scoreItem}>
                                             <span>
@@ -396,14 +424,14 @@ export default function RealtimePollResultsPage() {
                                                 )}
                                                 {j.name}:
                                             </span>
-                                            {j.score !== null ? <strong>{j.score.toFixed(2)} / 10.00</strong> : <em>Pendiente</em>}
+                                            {j.score !== null ? <strong className={getScoreColor(j.score, 10)}>{j.score.toFixed(2)} / 10.00</strong> : <em>Pendiente</em>}
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         ))}
                     </div>
-                    {/* --- INICIO DE LA CORRECCIÓN --- */}
+
                     <DynamicChartDisplay
                         isProjectsPoll={true}
                         isCandidatesPoll={false}
@@ -411,9 +439,8 @@ export default function RealtimePollResultsPage() {
                         view={view}
                         COLORS={COLORS}
                         judgeNames={judgeNames} 
-                        setView={() => {}}// <-- Añadido para cumplir con la interfaz
+                        setView={() => {}}
                     />
-                    {/* --- FIN DE LA CORRECCIÓN --- */}
                 </div>
             )}
             
@@ -423,7 +450,6 @@ export default function RealtimePollResultsPage() {
                         <button className={view === 'bar' ? styles.toggleActive : styles.toggleButton} onClick={() => setView('bar')}>Barras</button>
                         <button className={view === 'pie' ? styles.toggleActive : styles.toggleButton} onClick={() => setView('pie')}>Pastel</button>
                     </div>
-                    {/* Los gráficos de candidatas ahora están dentro de DynamicChartDisplay */}
                     <DynamicChartDisplay 
                         isProjectsPoll={false}
                         isCandidatesPoll={isCandidatesPoll}
@@ -431,8 +457,7 @@ export default function RealtimePollResultsPage() {
                         view={view}
                         COLORS={COLORS}
                         setView={setView}
-                        judgeNames={[]} // <-- AÑADE ESTA LÍNEA
-
+                        judgeNames={[]}
                     />
                 </div>
             )}

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, ChangeEvent } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Image from 'next/image'
 import { supabase } from '../../../../lib/supabaseClient'
@@ -19,7 +19,6 @@ interface Project {
   previewUrl: string | null;
 }
 
-// Estructura para Preguntas y Opciones de Candidatas
 interface Option {
   id: number;
   name: string;
@@ -37,6 +36,7 @@ interface Judge {
   id_juez: number;
   nombre_completo: string;
   url_imagen: string | null;
+  codigo_unico: string; // <-- Campo añadido
 }
 
 interface NewJudge {
@@ -45,7 +45,6 @@ interface NewJudge {
     previewUrl: string | null;
 }
 
-// --- FUNCIÓN AUXILIAR PARA AVATAR ---
 const getInitial = (name: string): string => {
     if (!name) return '?';
     const titles = /^(Dr|Dra|Ing|Lic)\.?$/i;
@@ -59,26 +58,22 @@ export default function CreatePollFormPage() {
   const { typeId } = useParams<{ typeId: string }>()
   const router = useRouter()
 
-  // --- ESTADOS PRINCIPALES ---
   const [session, setSession] = useState<Session | null>(null);
   const [typeName, setTypeName] = useState('')
   const [titulo, setTitulo] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [preview, setPreview] = useState(false)
 
-  // --- ESTADOS PARA PROYECTOS Y CANDIDATOS ---
-  const [duracionSegundos, setDuracionSegundos] = useState(3600);
+  const [duracionSegundos, setDuracionSegundos] = useState(60);
   const [projects, setProjects] = useState<Project[]>([{ id: Date.now(), name: '', imageFile: null, previewUrl: null }])
   const [candidateQuestions, setCandidateQuestions] = useState<Question[]>([
     { id: Date.now(), text: '', options: [{ id: Date.now() + 1, name: '', imageFile: null, previewUrl: null }] }
   ]);
   
-  // --- ESTADOS PARA JUECES ---
   const [availableJudges, setAvailableJudges] = useState<Judge[]>([]);
   const [selectedJudges, setSelectedJudges] = useState<Set<number>>(new Set());
   const [newJudge, setNewJudge] = useState<NewJudge>({ name: '', imageFile: null, previewUrl: null });
 
-  // --- BANDERAS SIMPLIFICADAS ---
   const isProjects = typeName === 'Proyectos';
   const isCandidates = typeName === 'Candidatas';
 
@@ -101,21 +96,29 @@ export default function CreatePollFormPage() {
     loadInitialData();
   }, [typeId]);
 
-  // --- MANEJO DE IMÁGENES (REUTILIZABLE) ---
-  const compressAndPreviewImage = async (file: File, callback: (file: File, url: string) => void) => {
+
+   const compressAndPreviewImage = async (file: File, callback: (file: File, url: string) => void) => {
     if (!file) return;
-    Swal.fire({ title: 'Comprimiendo imagen...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-    try {
-      const options = { maxSizeMB: 0.3, maxWidthOrHeight: 800, useWebWorker: true };
-      const compressedFile = await imageCompression(file, options);
+     Swal.fire({ title: 'Procesando imagen...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+     try {
+      const options = { 
+         maxSizeMB: 5, // <--- CAMBIO CLAVE: Aumentamos drásticamente el límite (a 5MB) para prácticamente NO forzar la compresión por tamaño.
+         maxWidthOrHeight: 1200, // <--- RECOMENDACIÓN: Subimos a 1200px para mantener mejor detalle si se ven en grande.
+        useWebWorker: true,
+        fileType: "image/jpeg", // <--- OPCIONAL: Forzamos la salida a JPEG
+         initialQuality: 0.95, // <--- CLAVE: Establece una calidad JPEG muy alta (95%)
+    };
+
+     // Si la imagen ya es pequeña, la omite. Si es grande, reduce su resolución y la convierte a JPEG de alta calidad.
+       const compressedFile = await imageCompression(file, options);
       const previewUrl = URL.createObjectURL(compressedFile);
       callback(compressedFile, previewUrl);
-      Swal.close();
-    } catch (error) {
-      console.error('Error al comprimir:', error);
-      Swal.fire('Error', 'No se pudo procesar la imagen.', 'error');
+       Swal.close();
+     } catch (error) {
+    console.error('Error al procesar:', error);
+     Swal.fire('Error', 'No se pudo procesar la imagen.', 'error');
     }
-  };
+   };
 
   const handleProjectImageChange = (file: File, projectId: number) => {
     compressAndPreviewImage(file, (compressedFile, previewUrl) => {
@@ -129,7 +132,7 @@ export default function CreatePollFormPage() {
     });
   };
 
-  // --- MANEJO DE JUECES ---
+  // --- LÓGICA DE AÑADIR JUEZ ACTUALIZADA ---
   const handleAddJudge = async () => {
     if (!newJudge.name.trim() || !session?.user.id) {
       Swal.fire('Atención', 'El nombre del juez no puede estar vacío.', 'warning');
@@ -147,10 +150,15 @@ export default function CreatePollFormPage() {
         const { data: urlData } = supabase.storage.from('fotos_jueces').getPublicUrl(filePath);
         imageUrl = urlData.publicUrl;
     }
+    
+    // Genera un código único para el nuevo juez
+    const uniqueCode = `JUEZ-${Date.now().toString().slice(-4)}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
     const { data, error } = await supabase.from('jueces').insert({
       nombre_completo: newJudge.name.trim(),
       id_usuario_creador: session.user.id,
       url_imagen: imageUrl,
+      codigo_unico: uniqueCode, // <-- Guarda el código único
     }).select().single();
 
     if (error) {
@@ -158,6 +166,7 @@ export default function CreatePollFormPage() {
     } else if (data) {
       setAvailableJudges(current => [...current, data]);
       setNewJudge({ name: '', imageFile: null, previewUrl: null });
+      Swal.fire('Juez Agregado', `El código único para ${data.nombre_completo} es: ${data.codigo_unico}`, 'success');
     }
   };
 
@@ -368,10 +377,10 @@ export default function CreatePollFormPage() {
                     <input type="number" className={styles.input} value={duracionSegundos} onChange={e => setDuracionSegundos(parseInt(e.target.value, 10) || 0)} required min="1" />
                 </div>
                 <fieldset className={styles.card}>
-                    <legend>Proyectos a Evaluar</legend>
+                    <legend>Proyecto a Evaluar</legend>
                     {projects.map((p, i) => (
                         <div key={p.id} className={styles.projectItem}>
-                            <input className={styles.input} placeholder={`Nombre del Proyecto #${i + 1}`} value={p.name}
+                            <input className={styles.input} placeholder={`Estudiante que realizo el Proyecto`} value={p.name}
                                 onChange={e => setProjects(ps => ps.map(proj => proj.id === p.id ? {...proj, name: e.target.value} : proj))}
                                 required
                             />
@@ -382,7 +391,6 @@ export default function CreatePollFormPage() {
                             {projects.length > 1 && <button type="button" onClick={() => setProjects(ps => ps.filter(proj => proj.id !== p.id))} className={styles.removeBtnMini}><Trash2 size={16}/></button>}
                         </div>
                     ))}
-                    <button type="button" onClick={() => setProjects([...projects, { id: Date.now(), name: '', imageFile: null, previewUrl: null }])} className={styles.button}><PlusCircle size={16}/> Agregar Proyecto</button>
                 </fieldset>
 
                 <fieldset className={styles.card}>
@@ -541,3 +549,4 @@ export default function CreatePollFormPage() {
     </div>
   )
 }
+
