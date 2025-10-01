@@ -1,7 +1,9 @@
+// jquiej/votaciones_umg/Votaciones_umg-9744b383b35cec0f1f6640693c5ef9252332e743/src/app/vote/page.tsx
+
 'use client'
 
-import React, { useState, useEffect, useCallback, Suspense } from 'react' // Asegúrate de importar Suspense aquí
-import { useRouter, useSearchParams } from 'next/navigation' // <-- Importar useSearchParams
+import React, { useState, useEffect, useCallback, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
 import styles from './page.module.css'
 import Swal from 'sweetalert2'
@@ -11,7 +13,6 @@ import Image from 'next/image'
 // --- Nuevo Export Default ---
 export default function VotePage() {
     return (
-        // 🛑 Esto le dice a Next.js que espere al cliente para ejecutar useSearchParams()
         <Suspense fallback={<div>Cargando portal...</div>}>
             <UniversalVoteEntryPage />
         </Suspense>
@@ -53,10 +54,11 @@ function UniversalVoteEntryPage() {
   const [assignedPolls, setAssignedPolls] = useState<Poll[]>([]);
   const [publicPolls, setPublicPolls] = useState<Poll[]>([]);
   const [inactivePolls, setInactivePolls] = useState<Poll[]>([]);
-  const searchParams = useSearchParams(); // Hook para leer parámetros de la URL
+  const searchParams = useSearchParams();
+  const codeFromURL = searchParams.get('code'); 
 
-    // Lógica de inicio de sesión, ahora separada para ser reutilizable
-  const performLogin = useCallback(async (loginKey: string) => {
+    // 1. Lógica de Login (uso: al enviar el formulario)
+  const performLogin = useCallback(async (loginKey: string, redirectCode: string | null = null) => {
     setLoading(true);
     setError(null);
     try {
@@ -71,8 +73,16 @@ function UniversalVoteEntryPage() {
       
       if (userToLogin) {
         localStorage.setItem('currentUser', JSON.stringify(userToLogin));
-        setLoggedInUser(userToLogin);
-        // Limpia la URL para que el código no quede visible
+        // NOTA: setLoggedInUser dispara el useEffect de redirección/carga de panel
+        setLoggedInUser(userToLogin); 
+        
+        // Si hay un código, performLogin termina aquí, y el useEffect lo manejará.
+        if (redirectCode) {
+            sessionStorage.setItem('votingUser', JSON.stringify(userToLogin)); 
+            // NO HACER router.replace AQUÍ para evitar el warning en caso de renderizado
+            return;
+        }
+
         router.replace('/vote');
       } else {
         throw new Error('Credenciales no encontradas. Verifica tus datos.');
@@ -80,42 +90,22 @@ function UniversalVoteEntryPage() {
     } catch (err: any) {
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (!redirectCode) {
+        setLoading(false);
+      }
     }
   }, [router]);
 
-  // Efecto para autologin si se llega con un código en la URL
-  useEffect(() => {
-    const codeFromURL = searchParams.get('code');
-    // Si hay un código en la URL y nadie ha iniciado sesión, intenta el autologin
-    if (codeFromURL && !loggedInUser) {
-      setAccessKey(codeFromURL); // Pone el código en el campo de texto (opcional)
-      performLogin(codeFromURL); // Intenta iniciar sesión automáticamente
-    }
-  }, [searchParams, loggedInUser, performLogin]);
-  
-  useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem('currentUser');
-      if (storedUser) {
-        setLoggedInUser(JSON.parse(storedUser));
-      }
-    } catch (e) {
-      console.error("Error al leer localStorage", e);
-      localStorage.removeItem('currentUser');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // 2. Lógica de Carga de Encuestas (uso: cuando el usuario ya está logueado y ve el panel)
   const fetchPolls = useCallback(async (user: LoggedInUser) => {
     setLoading(true);
     setError(null);
     try {
+      // FILTRO MANTENIDO: Solo cargamos encuestas de Proyectos (ID 4) para el panel.
       const { data: allPolls, error: pollsError } = await supabase
         .from('encuestas')
         .select('id_encuesta, titulo, descripcion, estado, codigo_acceso, preguntas_encuesta(url_imagen,texto_pregunta)')
-        .eq('id_tipo_votacion', 4);
+        .eq('id_tipo_votacion', 4); 
 
       if (pollsError) throw pollsError;
 
@@ -142,10 +132,10 @@ function UniversalVoteEntryPage() {
         const pollData: Poll = {
             ...poll,
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore // O // @ts-expect-error, ya no importa cuál uses aquí
+            // @ts-ignore 
             url_imagen: poll.preguntas_encuesta[0]?.url_imagen || null,
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore // O // @ts-expect-error
+            // @ts-ignore 
             texto_pregunta: poll.preguntas_encuesta[0]?.texto_pregunta || null,
             hasVoted: votedPollIds.has(poll.id_encuesta),
         };
@@ -170,9 +160,46 @@ function UniversalVoteEntryPage() {
     }
   }, []);
 
+  // 3. Efecto para cargar usuario y pre-llenar acceso
   useEffect(() => {
-    if (loggedInUser) {
+    let loadedUser = null;
+    try {
+      const storedUser = localStorage.getItem('currentUser');
+      if (storedUser) {
+        loadedUser = JSON.parse(storedUser);
+        setLoggedInUser(loadedUser);
+      }
+    } catch (e) {
+      console.error("Error al leer localStorage", e);
+      localStorage.removeItem('currentUser');
+    } finally {
+        if (!loadedUser) {
+            setLoading(false);
+        }
+    }
+    if (codeFromURL) {
+      setAccessKey(codeFromURL); 
+    }
+  }, [codeFromURL]);
+
+
+  // 4. Efecto CLAVE para la redirección inmediata a Candidatas
+  useEffect(() => {
+    // Si el usuario ya está logueado Y tiene un código de redirección pendiente, ¡redireccionar!
+    if (loggedInUser && codeFromURL) {
+        sessionStorage.setItem('votingUser', JSON.stringify(loggedInUser)); 
+        router.replace(`/vote/${codeFromURL}`); 
+        setLoading(true); // Evitar renderizar el panel mientras se redirige
+        // NOTA: Esta redirección ocurre en un efecto, resolviendo el error de "update while rendering".
+    }
+  }, [loggedInUser, codeFromURL, router]);
+
+
+  // 5. Efecto para manejar la carga del panel (solo si no hay código de redirección)
+  useEffect(() => {
+    if (loggedInUser && !codeFromURL) { 
       fetchPolls(loggedInUser);
+
       const channel = supabase.channel('public:encuestas')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'encuestas' },
           () => fetchPolls(loggedInUser)
@@ -180,11 +207,13 @@ function UniversalVoteEntryPage() {
 
       return () => { supabase.removeChannel(channel); };
     }
-  }, [loggedInUser, fetchPolls]);
+  }, [loggedInUser, fetchPolls, codeFromURL]);
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedInput = accessKey.trim();
+    const codeToRedirect = searchParams.get('code'); 
     if (!trimmedInput) {
       setError('Por favor, ingresa tus credenciales.');
       return;
@@ -192,35 +221,19 @@ function UniversalVoteEntryPage() {
     setLoading(true);
     setError(null);
     
-    try {
-      let userToLogin: LoggedInUser | null = null;
-      const { data: judgeByCode } = await supabase.from('jueces').select('*').eq('codigo_unico', trimmedInput).single();
-      if (judgeByCode) {
-        userToLogin = judgeByCode;
-      } else {
-        const { data: student } = await supabase.from('alumnos').select('*').eq('carne', trimmedInput).single();
-        if (student) userToLogin = student;
-      }
-      
-      if (userToLogin) {
-        localStorage.setItem('currentUser', JSON.stringify(userToLogin));
-        setLoggedInUser(userToLogin);
-      } else {
-        throw new Error('Credenciales no encontradas. Verifica tus datos.');
-      }
-    } catch (err: any) {
-        setError(err.message);
-    } finally {
-        setLoading(false);
-    }
+    // Si hay un código en la URL, se usará como código de redirección.
+    await performLogin(trimmedInput, codeToRedirect); 
   };
 
   const handleLogout = () => {
     localStorage.removeItem('currentUser');
     setLoggedInUser(null);
+    sessionStorage.removeItem('votingUser'); 
+    // Después de cerrar sesión, asegurar que la URL esté limpia si el usuario vuelve
+    router.replace('/vote');
   };
 
-  // --- FUNCIÓN CORREGIDA ---
+  // --- FUNCIÓN para voto desde el panel (Proyectos) ---
   const handleVoteClick = (poll: Poll, isJudgeVote: boolean) => {
     if (poll.hasVoted) {
       Swal.fire({ icon: 'info', title: 'Ya has votado', text: 'Solo puedes votar una vez por encuesta.' });
@@ -228,7 +241,6 @@ function UniversalVoteEntryPage() {
     }
     sessionStorage.setItem('votingUser', JSON.stringify(loggedInUser));
     
-    // Decide qué código de acceso usar basado en el botón que se presionó
     const accessCode = isJudgeVote ? poll.codigo_acceso_juez : poll.codigo_acceso;
     
     if (!accessCode) {
@@ -236,12 +248,13 @@ function UniversalVoteEntryPage() {
         return;
     }
 
-    // 🛑 CAMBIO CLAVE: SIEMPRE REDIRIGE A LA RUTA ORIGINAL /vote/
     router.push(`/vote/${accessCode}`);
 };
 
+
   if (loading && !loggedInUser) return <p className={styles.info}>Cargando...</p>;
 
+  // Si el usuario está logueado, ve la lista (solo proyectos)
   if (loggedInUser) {
     return (
       <div className={styles.container}>
@@ -267,7 +280,6 @@ function UniversalVoteEntryPage() {
                                     <span className={styles.pollTitle}>{poll.titulo}</span>
                                     {poll.descripcion && <p className={styles.pollDescription}>{poll.descripcion}</p>}
                                 </div>
-                                {/* --- LLAMADA A LA FUNCIÓN CORREGIDA --- */}
                                 <button onClick={() => handleVoteClick(poll, true)} className={poll.hasVoted ? styles.votedButton : styles.voteButton} disabled={poll.hasVoted}>
                                     {poll.hasVoted ? 'Ya Votaste' : 'Votar como Juez'}
                                 </button>
@@ -288,7 +300,6 @@ function UniversalVoteEntryPage() {
                                   <span className={styles.pollTitle}>{poll.titulo}</span>
                                   {poll.descripcion && <p className={styles.pollDescription}>{poll.descripcion}</p>}
                               </div>
-                              {/* --- LLAMADA A LA FUNCIÓN CORREGIDA --- */}
                               <button onClick={() => handleVoteClick(poll, false)} className={poll.hasVoted ? styles.votedButton : styles.voteButton} disabled={poll.hasVoted}>
                                   {poll.hasVoted ? 'Ya Votaste' : 'Votar como Público'}
                               </button>
@@ -321,6 +332,7 @@ function UniversalVoteEntryPage() {
     );
   }
 
+  // Si el usuario no está logueado, ve el formulario de login.
   return (
     <div className={styles.container}>
       <div className={styles.loginCard}>

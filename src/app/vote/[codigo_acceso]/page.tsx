@@ -63,8 +63,9 @@ export default function VotePage() {
     setProjectScores(prev => ({ ...prev, [pId]: score }));
   };
 
+
   useEffect(() => {
-    const initVoter = async () => {
+const initVoter = async () => {
         if (!codigo_acceso) return;
         const isJudgeAccessCode = codigo_acceso.startsWith('JUEZ-');
         
@@ -82,7 +83,8 @@ export default function VotePage() {
                     }
                     await loadPublicData(user);
                 } else {
-                    router.push('/vote');
+                    // --- CORRECCIÓN: Redirigir al login del portal con el código en la URL ---
+                    router.replace(`/vote?code=${codigo_acceso}`);
                     return;
                 }
             } catch (e) {
@@ -188,7 +190,21 @@ export default function VotePage() {
     e.preventDefault();
     if (timeLeft === 0 || !poll || isSubmitting) return;
     setIsSubmitting(true);
+    const result = await Swal.fire({
+        title: '¿Confirmas tu voto?',
+        text: "Una vez enviado, no podrás modificar tu elección. ¡Asegúrate de que es correcto!",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#10b981', // Verde
+        cancelButtonColor: '#ef4444', // Rojo
+        confirmButtonText: 'Sí, emitir voto',
+        cancelButtonText: 'Cancelar'
+    });
 
+    if (!result.isConfirmed) {
+        setIsSubmitting(false);
+        return; // Detiene el proceso si el usuario cancela
+    }
     try {
         const { data: currentPoll } = await supabase.from('encuestas').select('estado').eq('id_encuesta', poll.id_encuesta).single();
         if (currentPoll?.estado !== 'activa') throw new Error("Esta encuesta ya no está activa.");
@@ -231,6 +247,8 @@ export default function VotePage() {
         setIsSubmitting(false);
     }
   };
+
+
 
   const formatTime = (seconds: number) => {
       const hours = Math.floor(seconds / 3600);
