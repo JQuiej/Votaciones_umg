@@ -16,7 +16,13 @@ const eslintConfig = [
       "@typescript-eslint/no-unused-vars": "warn",
       "@typescript-eslint/no-explicit-any": "warn",
       '@typescript-eslint/no-inferrable-types': 'warn',
-      '@typescript-eslint/no-unused-expressions': 'warn'
+      '@typescript-eslint/no-unused-expressions': 'warn',
+      // Desactiva la regla de "no-unused-vars" (variables no usadas)
+    "@typescript-eslint/no-unused-vars": "off", 
+    // Desactiva la regla de "no-explicit-any" (uso de tipo 'any')
+    "@typescript-eslint/no-explicit-any": "off", 
+    // Desactiva la regla de 'no-img-element' (uso de <img> en lugar de <Image>)
+    "@next/next/no-img-element": "off" 
     }
   }
 ];
