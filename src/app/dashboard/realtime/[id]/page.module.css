@@ -1,661 +1,182 @@
-/* ===== Contenedor principal ===== */
+/* =============================================
+   ESTILOS GENERALES Y CONTENEDOR PRINCIPAL
+   ============================================= */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
 .container {
-  max-width: 900px;
+  max-width: 1200px;
   margin: 2rem auto;
   padding: 2rem;
-  background-color: #ececec;
+  background-color: #f9fafb;
   border-radius: 10px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
   font-family: 'Inter', sans-serif;
   color: #333;
 }
+
 /* =============================================
-   CÓDIGO RESPONSIVO PARA EL MODAL DE RESULTADOS
+   MODO PANTALLA COMPLETA
    ============================================= */
-@media (max-width: 600px) {
-
-  /* Ajusta el título principal del modal */
-  .winnerTitle {
-    font-size: 22px !important; /* Hacemos el título más pequeño */
-    gap: 8px;
-  }
-
-  /* Ajusta el nombre del ganador */
-  .winnerName {
-    font-size: 28px; /* Hacemos el nombre más pequeño */
-  }
-
-  /* Ajusta el texto secundario */
-  .winnerText, .winnerTextSmall {
-    font-size: 14px;
-    text-align: center; /* Alineamos al centro */
-  }
-
-  /* Ajusta la lista de resultados */
-  .resultsLi {
-    padding: 8px 4px; /* Menos espaciado vertical */
-    gap: 8px;         /* Menos espaciado entre elementos */
-  }
-
-  /* Reduce el tamaño de las imágenes en la lista */
-  .resultsImg {
-    width: 32px;
-    height: 32px;
-  }
-
-  /* Reduce el tamaño del texto en la lista */
-  .resultsName, .resultsCount, .rankNumber {
-    font-size: 14px;
-  }
+.fullscreenContainer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #111827; /* Fondo oscuro */
+  color: #f9fafb;
+  padding: 2rem;
+  overflow-y: auto;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
 }
-/* =============================================
-   CÓDIGO PARA RESPONSIVIDAD MÓVIL
-   ============================================= */
-@media (max-width: 768px) {
-  
-  /* 1. Ajusta el contenedor principal */
-  .container {
-    margin: 1rem;       /* Reduce el margen exterior */
-    padding: 1rem;      /* Reduce el espaciado interior */
-  }
-
-  /* 2. El encabezado se apila verticalmente */
-  .header, .headerContainer {
-    flex-direction: column; /* Apila el título y los botones */
-    align-items: flex-start;  /* Alinea todo a la izquierda */
-    gap: 1rem;
-  }
-  
-  /* 3. Ajusta el tamaño de los títulos */
-  .title, .heading, .mainTitle {
-    font-size: 1.5rem; /* Reduce el tamaño para que quepa mejor */
-    text-align: left;    /* Alinea a la izquierda en móvil */
-  }
-
-  /* 4. Las filas de opciones se apilan */
-  .optionRow {
-    flex-direction: column; /* Apila el input, imagen y botón */
-    align-items: stretch; /* Hace que ocupen el 100% del ancho */
-  }
-  
-  /* 5. Los botones de acción se apilan */
-  .actions {
-    flex-direction: column; /* Apila los botones de Previsualizar y Crear */
-    align-items: stretch; /* Ocupan todo el ancho */
-  }
-  
-  .actions .button,
-  .actions .previewBtn,
-  .actions .submitBtn {
-    width: 100%; /* Asegura que los botones sean fáciles de presionar */
-  }
+.fullscreenContainer .header {
+  border-bottom: 1px solid #374151;
+}
+.fullscreenContainer .mainTitle {
+  color: #f9fafb;
+}
+.fullscreenContainer .totalVotesPanel {
+    background-color: #1f2937;
+    color: #9ca3af;
+    border-color: #374151;
+}
+.fullscreenContainer .totalVotesPanel span {
+    color: #e5e7eb;
+    background-color: #374151;
+}
+.fullscreenContainer .projectCard {
+    background-color: #1f2937;
+    border-color: #8b5cf6;
+}
+.fullscreenContainer .projectName {
+    font-size: 2.5rem;
+    color: #f9fafb;
+}
+.fullscreenContainer .totalScore {
+    font-size: 4rem;
+}
+.fullscreenContainer .scoreBreakdown {
+    border-top-color: #374151;
+}
+.fullscreenContainer .scoreItem span, .fullscreenContainer .scoreItem em {
+    color: #d1d5db;
+}
+.fullscreenContainer .scoreItem strong {
+    color: #f9fafb;
+}
+.fullscreenContainer .projectRank {
+    color: #d1d5db;
+}
+.fullscreenContainer .projectRank svg {
+    color: #fbbF24;
+}
+.fullscreenContainer .summaryChart {
+    background-color: #1f2937;
+    border: 1px solid #374151;
+}
+.fullscreenContainer .chartTitle {
+    color: #f9fafb;
 }
 
-/* ===== Header con botón “Regresar” ===== */
+
+/* =============================================
+   ENCABEZADO, TÍTULOS Y BOTONES
+   ============================================= */
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 1.5rem;
+  gap: 1rem;
+}
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
-.backButton {
-  background: linear-gradient(135deg, #0066cc, #004a99);
-  color: #fff;
-  border: none;
+.backButton, .shareButton, .endButton, .fullscreenButton {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
   border-radius: 6px;
-  padding: 0.6rem 1rem;
-  font-size: 1.5rem;
-  font-weight: 600;
+  background-color: #fff;
+  color: #4b5563;
+  font-weight: 500;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-  transition: transform 0.1s ease, box-shadow 0.2s ease;
+  transition: all 0.2s;
 }
-.backButton:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+.backButton:hover, .shareButton:hover, .endButton:hover, .fullscreenButton:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
 }
 
-/* ===== Títulos ===== */
+.endButton {
+  background-color: #fee2e2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+.endButton:hover {
+  background-color: #ef4444;
+  color: #fff;
+}
+.endButton:disabled {
+  background-color: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.fullscreenButton {
+    background-color: #e0e7ff;
+    border-color: #c7d2fe;
+    color: #4f46e5;
+}
+
 .mainTitle {
   flex: 1;
   text-align: center;
-  color: #2c3e50;
+  color: #111827;
   margin: 0;
-  font-size: 2.4rem;
+  font-size: 2rem;
   font-weight: 700;
 }
 .subTitle {
   text-align: center;
-  color: #555;
+  color: #4b5563;
   margin-bottom: 2rem;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 500;
 }
 
-/* ===== Mensajes de estado ===== */
-.error {
-  text-align: center;
-  color: #d9534f;
-  font-weight: bold;
-  margin-bottom: 1rem;
-}
-.info {
-  text-align: center;
-  color: #3498db;
-  font-weight: bold;
-  padding: 1rem 0;
-  animation: pulse 1.5s infinite;
-}
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.7; }
-}
-.info::before {
-  display: block;
-  margin-bottom: 0.5rem;
-}
-
-/* ===== Selector de vista (barras/pastel) ===== */
-.toggleGroup {
-  display: inline-flex;
-  border-radius: 6px;
-  overflow: hidden;
-  margin: 0 auto 2rem;
-  background-color: #e0e0e0;
-}
-.toggleButton,
-.toggleActive {
-  padding: 0.6rem 1.2rem;
-  border: none;
-  background: #7d7be6;
-  color: white;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.toggleButton:hover {
-   background: #008bb5;
-}
-.toggleActive {
-  background: #0066cc;
-  color: #fff;
-}
-.toggleActive:hover {
-  background: #008bb5;
-}
-
-/* ===== Botones generales ===== */
-.button,
-.previewBtn,
-.submitBtn,
-.shareButton,
-.endButton {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 6px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  transition: background 0.2s, transform 0.1s;
-}
-.button,
-.submitBtn {
-  background-color: #0066cc;
-  color: #fff;
-}
-.button:hover,
-.submitBtn:hover {
-  background-color: #005bb5;
-  transform: translateY(-1px);
-}
-.previewBtn {
-  background-color: #3498db;
-  color: #fff;
-}
-.previewBtn:hover {
-  background-color: #2c80b4;
-}
-.shareButton {
-  background-color: #f3f4f6;
-  color: #374f51;
-  padding: 0.6rem 1.2rem;
-}
-.shareButton:hover {
-  background-color: #e5e7eb;
-}
-
-/* ===== Bloques de gráfico ===== */
-.chartBlock {
-  margin-bottom: 2.5rem;
-  padding: 1.5rem;
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgb(136, 55, 228);
-}
-
-/* ===== Preguntas ===== */
-.questionTitle {
-  text-align: center;
-  color: #34495e;
-  font-size: 1.6rem;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid #ececec;
-}
-.questionImg {
-  display: block;
-  margin: 1rem auto 1.5rem;
-  max-width: 30%;
-  border-radius: 6px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-}
-.rankingInfo {
-  text-align: center;
-  color: #000000;
-  font-size: 0.9rem;
-  margin-bottom: 1rem;
-}
-
-/* ===== Contenedor de gráfico ===== */
-.chartContainer {
-  width: 100%;
-  height: 300px;
-  margin-bottom: 1.5rem;
-}
-
-/* ===== Lista de opciones ===== */
-.optionList {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 1rem;
-  margin-top: 1.5rem;
-}
-.optionItem {
-  display: flex;
-  align-items: center;
-  background-color: #aaeaec;
-  padding: 0.75rem 1rem;
-  border-radius: 6px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-  font-size: 0.95rem;
-  color: #333;
-}
-.optionItem:hover {
-  background-color: #9cd8da;
-}
-.optionImg {
-  width: 60px;
-  height: 60px;
-  object-fit: cover;
-  border-radius: 50px;
-  margin-right: 0.75rem;
-}
-.optionText {
-  font-weight: 600;
-}
-
-/* ===== Modal de compartir ===== */
-.shareModalContent {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  text-align: center;
-}
-.qrContainerModal {
-  padding: 1rem;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-.shareInfo {
-  width: 100%;
-  text-align: left;
-}
-.shareInput {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #196428;
-  border-radius: 6px;
-  background: #fafbfc;
-  font-family: monospace;
-  text-align: center;
-  font-size: 1.2rem;
-}
-
-/* ===== Responsive ===== */
-@media (max-width: 600px) {
-  .questionImg { max-width: 60%; }
-  .optionList { gap: 0.5rem; }
-}
-
-/* --- Botón Finalizar --- */
-.endButton {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border: none;
-  border-radius: 8px;
-  background-color: #e53e3e; /* Rojo para indicar una acción final */
-  color: white;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.1s ease;
-}
-
-.endButton:hover {
-  background-color: #c53030;
-  transform: translateY(-1px);
-
-}
-
-.endButton:disabled {
-  background-color: #a0aec0; /* Gris cuando está deshabilitado */
-  cursor: not-allowed;
-  transform: none;
-}
-
-
-/* --- Panel de Votos Totales --- */
+/* =============================================
+   PANELES DE INFORMACIÓN Y PROYECTOS
+   ============================================= */
 .totalVotesPanel {
-  background-color: #f7fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 16px 24px;
-  margin: 16px auto;
-  text-align: center;
-  font-size: 18px;
-  font-weight: 500;
-  color: #4e684a;
-  width: fit-content;
-  box-shadow: 0 4px 6px -1px rgba(243, 37, 37, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-}
-
-.totalVotesPanel span {
-  font-size: 24px;
-  font-weight: 700;
-  color: #46482d;
-  margin-left: 8px;
-  background-color: #e2e8f0;
-  padding: 4px 10px;
-  border-radius: 8px;
-}
-
-
-/* --- Estilos para el Modal de Ganador (SweetAlert2) --- */
-.winnerTitle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: #e9b320; /* Color dorado */
-  font-size: 28px !important;
-}
-
-.winnerText {
-  margin-top: 16px;
-  color: #ffffff;
-  font-size: 16px;
-}
-
-.winnerName {
-  font-size: 36px;
-  font-weight: 700;
-  color: #ffffff;
-  margin: 8px 0 !important;
-  line-height: 1.2;
-}
-
-.winnerTextSmall {
-  font-size: 14px;
-  color:#ffffff;
-  margin-bottom: 24px;
-}
-
-.fullRankingTitle {
-  color:#ffffff;
-  margin-top: 24px;
-  font-size: 20px;
-  text-align: left;
-}
-
-.resultsOl {
-  list-style-type: none;
-  padding-left: 0;
-  margin-top: 12px;
-  text-align: left;
-}
-
-.resultsLi {
-  display: flex;
-  align-items: center;
-  padding: 12px 8px;
-  border-bottom: 1px solid #edf2f7;
-  gap: 12px;
-}
-
-.resultsLi:last-child {
-  border-bottom: none;
-}
-
-.rankNumber {
-  font-weight: 700;
-  font-size: 16px;
-  color:#ffffff;
-  min-width: 25px; /* Alinea los números */
-}
-
-/* ESTA ES LA REGLA CLAVE PARA LAS IMÁGENES */
-.resultsImg {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%; /* Hace las imágenes redondas */
-  object-fit: cover; /* Evita que la imagen se deforme */
-  border: 2px solid #e2e8f0;
-}
-
-.resultsName {
-  flex-grow: 1; /* Ocupa el espacio restante */
-  font-weight: 500;
-  color: #ffffff;
-}
-
-.resultsCount {
-  font-weight: 500;
-  color: #ffffff;
-  font-size: 14px;
-}
-
-/* --- Estilos para el Modal de Ganador (SweetAlert2) --- */
-/* ... tus estilos existentes del modal ... */
-
-/* ESTILO NUEVO PARA EL TÍTULO DE LA ENCUESTA EN EL MODAL */
-.pollTitleModal {
-  font-size: 16px;
-  font-style: italic;
-  color: #ffffff; /* Un color gris suave */
-  margin-top: -10px; /* Lo acerca un poco al título principal */
-  margin-bottom: 20px;
-  border-bottom: 1px solid #e2e8f0;
-  padding-bottom: 15px;
-}
-
-/* --- Estilos para el Div Oculto que se convierte en Imagen --- */
-.shareableResultsContainer {
-  /* Posicionado fuera de la pantalla para que no sea visible */
-  position: absolute;
-  left: -9999px;
-  top: 0;
-
-  /* Estilos para que la imagen se vea bien */
-  background-color: #ffffff;
-  padding: 24px;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  width: 450px; /* Ancho fijo para la imagen */
-  font-family: 'Roboto', sans-serif; /* Asegúrate de usar la misma fuente que tu app */
-  color: #40482d;
-}
-
-.shareableHeader {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: #c99c1c; /* Dorado */
-}
-
-.shareableHeader h2 {
-  font-size: 24px;
-  margin: 0;
-}
-
-.shareablePollTitle {
-  font-size: 14px;
-  text-align: center;
-  color: #718096;
-  font-style: italic;
-  margin: 8px 0 16px 0;
-  border-bottom: 1px solid #e2f0e5;
-  padding-bottom: 12px;
-}
-
-.shareableWinner {
-  text-align: center;
-  margin-bottom: 16px;
-}
-
-.shareableWinner p {
-  margin: 0;
-  color: #719677;
-}
-
-.shareableWinner h3 {
-  font-size: 28px;
-  margin: 4px 0 0 0;
-  color: #31482d;
-}
-
-.shareableList {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.shareableList li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.shareableList li:last-child {
-  border-bottom: none;
-}
-
-.shareableRank {
-  font-weight: 700;
-  min-width: 20px;
-  color: #a5c0a0;
-}
-
-.shareableName {
-  flex-grow: 1;
-  font-weight: 500;
-}
-
-.shareableCount {
-  font-weight: 500;
-  color: #4a5568;
-}
-
-/* Estilos para la Modal de Resultados Mejorada */
-.questionResultBlock {
-  margin-top: 20px;
-  text-align: left;
-}
-
-.questionResultTitle {
-  font-size: 1.1em;
-  color: #ffffff;
-  text-align: center;
-  border-bottom: 2px solid #eee;
-  padding-bottom: 5px;
-  margin-bottom: 10px;
-}
-
-.winnerNameSmall {
-  font-weight: bold;
-  color: #ffffff;
-  text-align: center;
-}
-
-.questionSeparator {
-  border: none;
-  border-top: 1px dashed #ccc;
-  margin: 25px 0;
-}
-
-/* Estilos para la Imagen Compartible Mejorada */
-.shareableQuestionBlock {
-  margin-top: 20px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 15px;
-  background-color: #fcfcfc;
-}
-
-.shareableQuestionTitle {
-  font-size: 1.3em;
-  text-align: center;
-  margin-bottom: 10px;
-  color: #1a1a1a;
-}
-
-.shareableImg {
-  width: 30px;
-  height: 30px;
-  object-fit: cover;
-  border-radius: 4px;
-  margin-right: 10px;
-  vertical-align: middle;
-}
-
-/* Ajuste al li de la lista compartible para alinear items con imagen */
-.shareableList li {
-  display: flex;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-/* ===== ESTILOS PARA LA VISTA DE PROYECTOS (MEJORADOS) ===== */
-
-.timer {
   background-color: #fff;
-  color: #333;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-weight: 600;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  display: flex;
-  align-items: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  margin: 0 auto 2rem auto;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #4b5563;
+  width: fit-content;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
 }
-
-.timer strong {
-  margin-left: 8px;
-  color: #0066cc;
-  font-size: 1.1em;
+.totalVotesPanel span {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin-left: 0.5rem;
+  background-color: #f3f4f6;
+  padding: 0.25rem 0.75rem;
+  border-radius: 8px;
 }
 
 .projectsContainer {
@@ -663,178 +184,260 @@
   flex-direction: column;
   gap: 2.5rem;
 }
-
 .projectsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 1.5rem;
 }
-
 .projectCard {
   background-color: #fff;
   border-radius: 12px;
   padding: 1.5rem;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  border-top: 5px solid #0066cc;
+  border-top: 4px solid #8b5cf6;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-
 .projectCard:hover {
     transform: translateY(-5px);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
 }
-
 .projectRank {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  color: #34495e;
+  color: #6b7280;
   margin-bottom: 0.5rem;
-  height: 40px;
+  height: 32px;
+  display: flex;
+  align-items: center;
 }
-
 .projectRank svg {
-  color: #ffc107;
+  color: #f59e0b;
 }
-
-.projectImg {
+.projectImageContainer {
   width: 100%;
-  height: 140px;
-  
-  /* Cambia 'cover' por 'fill' */
-  object-fit: contain; 
-  
+  max-height: 200px; /* Altura máxima para que no sea demasiado grande */
+  display: flex;
+  height: 200px;
+  position: relative;
+  justify-content: center;
+  align-items: center;
+  background-color: #f8f9fa;
   border-radius: 8px;
   margin-bottom: 1rem;
-}
-
-.projectName {
-  font-size: 1.4rem;
-  font-weight: 600;
-  color: #2c3e50;
-  margin: 0 0 0.5rem 0;
-  height: 3.5rem; 
   overflow: hidden;
 }
 
+.fullscreenContainer .projectImageContainer {
+    background-color: #1f2937;
+    max-height: 300px; /* Un poco más de espacio en pantalla completa */
+}
+/* --- CAMBIO CLAVE AQUÍ --- */
+.projectImg {
+  width: 100%;
+  height: auto; /* La altura se ajustará automáticamente */
+  object-fit: contain; /* Asegura que toda la imagen sea visible */
+  border-radius: 8px; /* Redondea la imagen misma */
+}
+
+.projectName {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 0.5rem 0;
+  min-height: 3rem; 
+}
 .totalScore {
   font-size: 2.5rem;
   font-weight: 800;
-  color: #0066cc;
   margin-bottom: 1rem;
+}
+.maxScore {
+    font-size: 1.2rem;
+    font-weight: 500;
+    color: #9ca3af;
 }
 
 .scoreBreakdown {
   width: 100%;
-  border-top: 1px solid #eee;
+  border-top: 1px solid #e5e7eb;
   padding-top: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem; /* Aumenta el espacio entre filas */
+  gap: 0.75rem;
 }
-
-/* --- CORRECCIÓN DE DISEÑO --- */
 .scoreItem {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
   width: 100%;
   font-size: 0.95rem;
 }
-
 .scoreItem span {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #555;
-  text-align: left;
-  margin-right: 1rem; /* Añade margen a la derecha del nombre */
+  color: #4b5563;
 }
-
 .scoreItem strong, .scoreItem em {
-  white-space: nowrap; /* Evita que el puntaje se parta en dos líneas */
+  white-space: nowrap;
   font-weight: 600;
-  color: #333;
 }
-/* --- FIN DE CORRECCIÓN --- */
-
 .scoreItem em {
-  color: #999;
+  color: #9ca3af;
   font-style: italic;
 }
+.judgeAvatar {
+    border-radius: 50%;
+    object-fit: cover;
+}
+.scoreGreen { color: #10b981; }
+.scoreOrange { color: #f59e0b; }
+.scoreRed { color: #ef4444; }
+.scoreGray { color: #9ca3af; }
 
+
+/* =============================================
+   GRÁFICOS Y MENSAJES DE ESTADO
+   ============================================= */
 .summaryChart {
   background-color: #fff;
   border-radius: 12px;
   padding: 2rem 1.5rem 1.5rem 0.5rem;
   box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
-
-.summaryChart h3 {
+.chartTitle {
   text-align: center;
   margin-top: 0;
   margin-bottom: 2rem;
   font-size: 1.5rem;
-  color: #2c3e50;
+  color: #111827;
 }
 
-/* ... (todos tus estilos existentes van aquí arriba) ... */
-
-
-/* --- NUEVO ESTILO PARA LA FOTO DEL JUEZ --- */
-.judgeInfo {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem; /* Espacio entre la foto y el nombre */
+.info {
+  text-align: center;
+  color: #6b7280;
+  font-size: 1.125rem;
+  margin-top: 4rem;
+  animation: pulse 1.5s infinite;
+}
+.error {
+  text-align: center;
+  color: #d9534f;
+  font-weight: bold;
+  margin: 2rem;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
-.judgeAvatar {
-    border-radius: 50%; /* Hace la imagen redonda */
-    object-fit: cover;   /* Se asegura que la imagen cubra el círculo sin deformarse */
+/* =============================================
+   ESTILOS PARA MODALES (SWEETALERT2)
+   ============================================= */
+.winnerTitle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #f59e0b !important;
+  font-size: 28px !important;
 }
-/* ... (tu CSS existente) ... */
+.pollTitleModal {
+  font-size: 16px;
+  font-style: italic;
+  color: #d1d5db;
+  margin-top: -10px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #374151;
+  padding-bottom: 15px;
+}
+.resultsOl {
+  list-style-type: none;
+  padding-left: 0;
+  margin-top: 12px;
+  text-align: left;
+}
+.resultsLi {
+  display: flex;
+  align-items: center;
+  padding: 12px 8px;
+  border-bottom: 1px solid #374151;
+  gap: 12px;
+}
+.resultsLi:last-child { border-bottom: none; }
+.rankNumber {
+  font-weight: 700;
+  font-size: 16px;
+  min-width: 25px;
+}
+.resultsImg {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #4b5563;
+}
+.resultsName {
+  flex-grow: 1;
+  font-weight: 500;
+}
+.resultsCount { font-weight: 500; font-size: 14px; }
 
-/* ===== Estilos para Resultados de Proyectos ===== */
-.scoreItem {
-    display: flex;
-    justify-content: space-between;
-    align-items: center; /* Asegura alineación vertical */
-    padding: 4px 0;
-    font-size: 0.9rem;
-    border-bottom: 1px solid #e0e0e0;
+/* =============================================
+   CONTENEDOR OCULTO PARA COMPARTIR IMAGEN
+   ============================================= */
+.shareableResultsContainer {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background-color: #ffffff;
+  padding: 24px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  width: 450px;
+  font-family: 'Inter', sans-serif;
+  color: #111827;
+}
+.shareableHeader {
+  display: flex; align-items: center; justify-content: center; gap: 12px; color: #f59e0b;
+}
+.shareableHeader h2 { font-size: 24px; margin: 0; }
+.shareablePollTitle {
+  font-size: 14px; text-align: center; color: #6b7280; font-style: italic;
+  margin: 8px 0 16px 0; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px;
+}
+.shareableQuestionBlock { margin-top: 20px; }
+.shareableQuestionTitle { font-size: 1.3em; text-align: center; margin-bottom: 10px; }
+.shareableList { list-style: none; padding: 0; margin: 0; }
+.shareableList li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
+.shareableList li:last-child { border-bottom: none; }
+.shareableRank { font-weight: 700; min-width: 20px; color: #9ca3af; }
+.shareableImg { width: 30px; height: 30px; object-fit: cover; border-radius: 4px; }
+.shareableName { flex-grow: 1; font-weight: 500; }
+.shareableCount { font-weight: 500; color: #4b5563; }
+
+/* =============================================
+   RESPONSIVIDAD MÓVIL
+   ============================================= */
+@media (max-width: 768px) {
+  .container, .fullscreenContainer {
+    padding: 1rem;
+  }
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .mainTitle {
+    font-size: 1.5rem;
+    text-align: left;
+  }
+  .headerActions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
 }
 
-/* AÑADIDO: Contenedor para el avatar y el nombre del juez */
-.scoreItem > span {
-    display: flex;
-    align-items: center;
-    gap: 8px; /* Espacio entre imagen y texto */
-}
-
-.scoreItem:last-child {
-    border-bottom: none;
-}
-
-/* AÑADIDO: Estilo para el avatar circular del juez */
-.judgeAvatar {
-    border-radius: 50%;
-    object-fit: cover; /* Evita que la imagen se deforme */
-    width: 24px;   /* Coincide con el JSX */
-    height: 24px;  /* Coincide con el JSX */
-}
-
-/* ... (Añadir al final de tu archivo page.module.css) ... */
-
-/* Colores para el Semáforo de Puntuación */
-.scoreGreen {
-    color: #28a745;
-}
-.scoreOrange {
-    color: #ffc107;
-}
-.scoreRed {
-    color: #dc3545;
-}
