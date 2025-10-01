@@ -1,0 +1,191 @@
+/* ===== Contenedor Principal ===== */
+.container {
+  max-width: 800px;
+  margin: 4rem auto;
+  padding: 2rem;
+}
+
+.title {
+  text-align: center;
+  font-size: 2.5rem; /* Hacemos el tamaño consistente */
+  font-weight: 800;
+  margin-bottom: 3rem;
+  background: linear-gradient(to right, #a78bfa, #818cf8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.info, .error {
+  text-align: center;
+  padding: 2rem;
+  font-size: 1.1rem;
+}
+.error {
+  color: #d9534f;
+}
+
+/* ===== Tarjeta de Login ===== */
+.loginCard {
+  background: #fff;
+  padding: 2.5rem;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+}
+.loginCard p {
+  text-align: center;
+  color: #666;
+  margin-bottom: 1.5rem;
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.input {
+  padding: 0.8rem 1rem;
+  font-size: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.input:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.2);
+}
+.button {
+  padding: 0.8rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  background-color: #0066cc;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.button:hover {
+  background-color: #005bb5;
+}
+
+/* ===== Vista de Listado de Encuestas ===== */
+/* ===== Vista de Listado de Encuestas ===== */
+
+.welcomeHeader {
+  display: flex;
+  justify-content: center; /* Centra todo el bloque horizontalmente */
+  align-items: center;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1.5rem; /* Espacio si el botón "Cambiar Carné" se pone debajo en pantallas pequeñas */
+  position: relative; /* Para el botón de logout si se quiere absoluto */
+}
+
+.welcomeUser {
+    display: flex;
+    align-items: center; /* Clave: Centra verticalmente el ícono y el texto */
+    gap: 0.75rem;       /* Espacio entre el ícono y el texto */
+    color: #e6dbdb;        /* Color para el ícono y texto (ajústalo a tu gusto) */
+}
+
+/* Regla clave para el título */
+.welcomeHeader .title {
+  margin: 0; /* Elimina los márgenes del h1 que interfieren con la alineación */
+  font-size: 1.8rem;
+  line-height: 1; /* Asegura que la altura de línea no añada espacio extra */
+}
+
+/* ... (resto de tus estilos) ... */
+
+.logoutButton {
+  display: flex;
+  gap: 0.25rem;              /* 3. Reducimos el espacio entre título y descripción */
+  text-align: left;
+  width: 100%;
+  height: 100%;
+  padding: 1.5rem;
+  color: #f9fafb; /* Texto blanco */
+  background-color: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+/* --- Hover con Efecto "Neón" --- */
+.logoutButton:hover {
+  transform: translateY(-5px);
+  border-color: #5cf664;
+  /* Sombra de neón que hemos usado antes */
+  box-shadow: 0 0 25px rgba(139, 92, 246, 0.2);
+}
+
+.logoutButton:focus-visible {
+  outline: 2px solid #8b5cf6;
+  outline-offset: 2px;
+}
+
+.pollList {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}
+.listTitle {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #eee;
+}
+.pollItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+.pollItem:last-child {
+  border-bottom: none;
+}
+.pollItem span {
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+.voteButton, .votedButton, .statusLabel {
+  padding: 0.5rem 1.2rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.voteButton {
+  background-color: #28a745;
+  color: #fff;
+}
+.voteButton:hover {
+  background-color: #218838;
+}
+.votedButton {
+  background-color: #6c757d;
+  color: #fff;
+  cursor: not-allowed;
+}
+.inactive {
+  color: #999;
+}
+.statusLabel {
+  background-color: #f1f1f1;
+  color: #666;
+  font-weight: 500;
+  cursor: default;
+}
+.noPollsMessage {
+    color: #888;
+    padding: 1rem 0;
+    text-align: center;
+}

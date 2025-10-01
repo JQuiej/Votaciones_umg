@@ -1,8 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
-import FingerprintJS from '@fingerprintjs/fingerprintjs'
+import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '../../../lib/supabaseClient'
 import Swal from 'sweetalert2'
 import styles from './page.module.css'
@@ -29,16 +28,21 @@ interface JudgeInfo {
     id_juez: number;
     nombre_completo: string;
 }
+interface StudentInfo {
+    id_alumno: number;
+    nombre_completo: string;
+}
 
 export default function VotePage() {
   const { codigo_acceso } = useParams<{ codigo_acceso: string }>()
+  const router = useRouter()
 
   const [poll, setPoll] = useState<Poll | null>(null)
   const [preguntas, setPreguntas] = useState<Pregunta[]>([])
   const [judgeInfo, setJudgeInfo] = useState<JudgeInfo | null>(null)
+  const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [fingerprint, setFingerprint] = useState<string | null>(null)
   const [hasVoted, setHasVoted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -60,19 +64,32 @@ export default function VotePage() {
     const initVoter = async () => {
         if (!codigo_acceso) return;
         const isJudge = codigo_acceso.startsWith('JUEZ-');
+        
         if (isJudge) {
             await loadJudgeData();
         } else {
-            const fp = await FingerprintJS.load();
-            const result = await fp.get();
-            setFingerprint(result.visitorId);
-            await loadPublicData(result.visitorId);
+            // Es un votante público (estudiante), leer de sessionStorage
+            try {
+                const storedStudent = sessionStorage.getItem('votingStudent');
+                if (storedStudent) {
+                    const student = JSON.parse(storedStudent) as StudentInfo;
+                    setStudentInfo(student);
+                    await loadPublicData(student);
+                } else {
+                    // Si no hay estudiante, redirigir al login de estudiantes
+                    router.push('/vote');
+                    return;
+                }
+            } catch (e) {
+                setError("Error al verificar la sesión del estudiante.");
+                setLoading(false);
+            }
         }
     };
     initVoter();
   }, [codigo_acceso]);
 
-      useEffect(() => {
+    useEffect(() => {
         if (!poll || !poll.duracion_segundos || !poll.fecha_activacion || poll.estado !== 'activa') {
             setTimeLeft(null);
             return;
@@ -87,7 +104,6 @@ export default function VotePage() {
             if (remaining <= 0) {
                 setTimeLeft(0);
                 clearInterval(interval);
-                // Opcional: mostrar una alerta de que el tiempo se acabó
                 Swal.fire({
                     icon: 'info',
                     title: '¡Tiempo terminado!',
@@ -99,7 +115,7 @@ export default function VotePage() {
             }
         }, 1000);
 
-        return () => clearInterval(interval); // Limpieza al desmontar el componente
+        return () => clearInterval(interval);
     }, [poll]);
 
   const loadJudgeData = async () => {
@@ -111,54 +127,43 @@ export default function VotePage() {
         .single();
 
     if (judgeErr || !judgePollLink || !judgePollLink.jueces) {
-        setError("Código de acceso de juez no válido o no encontrado.");
-        setLoading(false);
-        return;
+        setError("Código de acceso de juez no válido."); setLoading(false); return;
     }
     
     const { id_encuesta, id_juez, jueces } = judgePollLink;
     let judgeName = '';
     if (jueces) {
-        if (Array.isArray(jueces) && jueces.length > 0) {
-            judgeName = jueces[0].nombre_completo;
-        } else if (typeof jueces === 'object' && !Array.isArray(jueces) && 'nombre_completo' in jueces) {
-            judgeName = (jueces as { nombre_completo: string }).nombre_completo;
-        }
+        if (Array.isArray(jueces)) judgeName = jueces[0]?.nombre_completo ?? '';
+        else if (typeof jueces === 'object' && 'nombre_completo' in jueces) judgeName = (jueces as { nombre_completo: string }).nombre_completo;
     }
-    if (!judgeName) {
-      setError("No se pudo obtener la información del juez.");
-      setLoading(false);
-      return;
-    }
+    if (!judgeName) { setError("No se pudo obtener la información del juez."); setLoading(false); return; }
     setJudgeInfo({ id_juez, nombre_completo: judgeName });
     await loadPollData(id_encuesta, { judgeId: id_juez });
   };
 
-  const loadPublicData = async (fp: string) => {
+  const loadPublicData = async (student: StudentInfo) => {
     setLoading(true);
     const { data: p, error: pe } = await supabase.from('encuestas').select('id_encuesta').eq('codigo_acceso', codigo_acceso).single();
-    if (pe || !p) {
-        setError('Enlace de encuesta inválido o no encontrado.'); setLoading(false); return;
-    }
-    await loadPollData(p.id_encuesta, { fingerprint: fp });
+    if (pe || !p) { setError('Enlace de encuesta inválido.'); setLoading(false); return; }
+    await loadPollData(p.id_encuesta, { studentId: student.id_alumno });
   };
 
-  const loadPollData = async (pollId: number, voter: { fingerprint?: string, judgeId?: number }) => {
+  const loadPollData = async (pollId: number, voter: { studentId?: number, judgeId?: number }) => {
     const { data: p, error: pe } = await supabase
-            .from('encuestas').select('*, duracion_segundos, fecha_activacion, tipo_votacion:id_tipo_votacion (nombre)')
-            .eq('id_encuesta', pollId).single();
+        .from('encuestas').select('*, duracion_segundos, fecha_activacion, tipo_votacion:id_tipo_votacion (nombre)')
+        .eq('id_encuesta', pollId).single();
     
     if (pe || !p) { setError('No se pudo cargar la encuesta.'); setLoading(false); return; }
-    if (p.estado !== 'activa') { setPoll(p); setError(`Esta encuesta no está disponible. Estado: ${p.estado.toUpperCase()}`); setLoading(false); return; }
+    if (p.estado !== 'activa') { setPoll(p); setError(`Esta encuesta no está disponible (Estado: ${p.estado.toUpperCase()})`); setLoading(false); return; }
     setPoll(p);
 
     let voteCheckQuery;
     if (voter.judgeId) {
         voteCheckQuery = supabase.from('votos_respuestas').select('id_voto', { count: 'exact' }).eq('id_encuesta', pollId).eq('id_juez', voter.judgeId);
-    } else {
-        voteCheckQuery = supabase.from('votos').select('id_voto', { count: 'exact' }).eq('id_encuesta', pollId).eq('huella_dispositivo', voter.fingerprint!);
+    } else if (voter.studentId) {
+        voteCheckQuery = supabase.from('votos_respuestas').select('id_encuesta', { count: 'exact' }).eq('id_encuesta', pollId).eq('id_alumno', voter.studentId);
     }
-    const { count: voteCount } = await voteCheckQuery;
+    const { count: voteCount } = await voteCheckQuery!;
     if (voteCount && voteCount > 0) { setHasVoted(true); setLoading(false); return; }
 
     const { data: qs, error: qe } = await supabase.from('preguntas_encuesta').select('*, opciones_pregunta(*)').eq('id_encuesta', p.id_encuesta).order('id_pregunta');
@@ -178,9 +183,9 @@ export default function VotePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (timeLeft === 0) {
-            Swal.fire({ icon: 'error', title: 'Tiempo Terminado', text: 'El tiempo para votar ha expirado.' });
-            return;
-        }
+        Swal.fire({ icon: 'error', title: 'Tiempo Terminado', text: 'El tiempo para votar ha expirado.' });
+        return;
+    }
     if (!poll || isSubmitting) return;
     setIsSubmitting(true);
     setError(null);
@@ -194,18 +199,19 @@ export default function VotePage() {
             if (isCandidatesPoll) {
                 const sel = singleResp[q.id_pregunta];
                 if (!sel) throw new Error(`Debes seleccionar una opción en "${q.texto_pregunta}"`);
-                respuestas.push({ id_encuesta: poll.id_encuesta, id_pregunta: q.id_pregunta, id_opcion_seleccionada: sel, id_juez: judgeInfo?.id_juez ?? null });
+                respuestas.push({ id_encuesta: poll.id_encuesta, id_pregunta: q.id_pregunta, id_opcion_seleccionada: sel, id_juez: judgeInfo?.id_juez ?? null, id_alumno: studentInfo?.id_alumno ?? null });
             } else if (isProjectsPoll) {
                 const score = projectScores[q.id_pregunta];
                 if (score === undefined) throw new Error(`Debes calificar el proyecto "${q.texto_pregunta}"`);
-                respuestas.push({ id_encuesta: poll.id_encuesta, id_pregunta: q.id_pregunta, valor_puntuacion: score, id_juez: judgeInfo?.id_juez ?? null });
+                respuestas.push({ id_encuesta: poll.id_encuesta, id_pregunta: q.id_pregunta, valor_puntuacion: score, id_juez: judgeInfo?.id_juez ?? null, id_alumno: studentInfo?.id_alumno ?? null });
             }
         }
 
         if (respuestas.length === 0) throw new Error("No has respondido ninguna pregunta.");
         
-        if (!judgeInfo && fingerprint) {
-            const { error: voteErr } = await supabase.from('votos').insert({ id_encuesta: poll.id_encuesta, huella_dispositivo: fingerprint });
+        // Registrar el voto en la tabla de control (votos_alumnos)
+        if (studentInfo) {
+            const { error: voteErr } = await supabase.from('votos_respuestas').insert({ id_encuesta: poll.id_encuesta, id_alumno: studentInfo.id_alumno });
             if (voteErr?.code === '23505') throw new Error('Ya has votado en esta encuesta.');
             else if (voteErr) throw voteErr;
         }
@@ -223,10 +229,11 @@ export default function VotePage() {
   };
 
   const formatTime = (seconds: number) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    };
+      const hours = Math.floor(seconds / 3600);
+      const mins = Math.floor((seconds % 3600) / 60);
+      const secs = seconds % 60;
+      return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   if (loading) return <p className={styles.info}>Cargando Encuesta…</p>;
   if (hasVoted) return (
@@ -250,12 +257,17 @@ export default function VotePage() {
               <User /> Votando como Juez: <strong>{judgeInfo.nombre_completo}</strong>
           </div>
       )}
-      {timeLeft !== null && (
-                <div className={styles.timer}>
-                    <Clock size={20} />
-                    <span>Tiempo restante: <strong>{formatTime(timeLeft)}</strong></span>
-                </div>
-            )}
+      {studentInfo && (
+          <div className={styles.judgeWelcome}>
+              <User /> Votando como: <strong>{studentInfo.nombre_completo}</strong>
+          </div>
+      )}
+      {timeLeft !== null && isProjectsPoll && (
+        <div className={styles.timer}>
+            <Clock size={20} />
+            <span>Tiempo restante: <strong>{formatTime(timeLeft)}</strong></span>
+        </div>
+      )}
       <h1 className={styles.title}>{poll.titulo}</h1>
       {poll.descripcion && <p className={styles.description}>{poll.descripcion}</p>}
       
@@ -299,8 +311,8 @@ export default function VotePage() {
       
       {error && <p className={styles.error}>{error}</p>}
       <button type="submit" className={styles.submitBtn} disabled={isSubmitting || timeLeft === 0}>
-                {timeLeft === 0 ? 'Tiempo Terminado' : (isSubmitting ? 'Enviando Voto...' : 'Enviar Voto')}
-            </button>
+          {timeLeft === 0 ? 'Tiempo Terminado' : (isSubmitting ? 'Enviando Voto...' : 'Enviar Voto')}
+      </button>
     </form>
   )
 }
