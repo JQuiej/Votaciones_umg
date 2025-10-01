@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, Suspense } from 'react' // Asegúrate de importar Suspense aquí
 import { useRouter, useSearchParams } from 'next/navigation' // <-- Importar useSearchParams
 import { supabase } from '../../lib/supabaseClient'
 import styles from './page.module.css'
@@ -8,6 +8,15 @@ import Swal from 'sweetalert2'
 import { LogIn, User, Image as ImageIcon } from 'lucide-react'
 import Image from 'next/image'
 
+// --- Nuevo Export Default ---
+export default function VotePage() {
+    return (
+        // 🛑 Esto le dice a Next.js que espere al cliente para ejecutar useSearchParams()
+        <Suspense fallback={<div>Cargando portal...</div>}>
+            <UniversalVoteEntryPage />
+        </Suspense>
+    )
+}
 // --- Interfaces ---
 interface Student {
   id_alumno: number;
@@ -34,7 +43,7 @@ interface Poll {
 }
 
 // --- Componente Principal ---
-export default function UniversalVoteEntryPage() {
+function UniversalVoteEntryPage() { 
   const [accessKey, setAccessKey] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true);
@@ -132,9 +141,11 @@ export default function UniversalVoteEntryPage() {
       allPolls.forEach(poll => {
         const pollData: Poll = {
             ...poll,
-            // @ts-ignore
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore // O // @ts-expect-error, ya no importa cuál uses aquí
             url_imagen: poll.preguntas_encuesta[0]?.url_imagen || null,
-            // @ts-ignore
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore // O // @ts-expect-error
             texto_pregunta: poll.preguntas_encuesta[0]?.texto_pregunta || null,
             hasVoted: votedPollIds.has(poll.id_encuesta),
         };
@@ -225,8 +236,9 @@ export default function UniversalVoteEntryPage() {
         return;
     }
 
+    // 🛑 CAMBIO CLAVE: SIEMPRE REDIRIGE A LA RUTA ORIGINAL /vote/
     router.push(`/vote/${accessCode}`);
-  };
+};
 
   if (loading && !loggedInUser) return <p className={styles.info}>Cargando...</p>;
 

@@ -8,6 +8,8 @@ import styles from './page.module.css'
 import Image from 'next/image'
 import { User, Clock } from 'lucide-react'
 
+const CANDIDATE_VOTING_TYPE_ID = 2;
+
 // --- Interfaces ---
 interface Poll {
     id_encuesta: number
