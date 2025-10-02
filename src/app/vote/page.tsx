@@ -125,9 +125,11 @@ function UniversalVoteEntryPage() {
       allPolls.forEach(poll => {
         const pollData: Poll = {
             ...poll,
-            // @ts-ignore
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore // O // @ts-expect-error, ya no importa cuál uses aquí
             url_imagen: poll.preguntas_encuesta[0]?.url_imagen || null,
-            // @ts-ignore
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore // O // @ts-expect-error
             texto_pregunta: poll.preguntas_encuesta[0]?.texto_pregunta || null,
             hasVoted: votedPollIds.has(poll.id_encuesta),
         };
