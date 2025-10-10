@@ -117,34 +117,51 @@ export default function RealtimePollResultsPage() {
             const { data: judges, error: jErr } = await supabase.from('encuesta_jueces').select('jueces(id_juez, nombre_completo, url_imagen)').eq('id_encuesta', poll.id_encuesta);
             if (jErr) { setError(`Error al cargar jueces: ${jErr.message}`); return; }
 
-            const { data: votes, error: vErr } = await supabase.from('votos_respuestas').select('id_pregunta, valor_puntuacion, id_juez, id_alumno').eq('id_encuesta', poll.id_encuesta);
-            if (vErr) { setError(`Error al cargar votos: ${vErr.message}`); return; }
-            
+            // --- INICIO DE LA LÓGICA CORREGIDA ---
+            const { data: allVotes, error: vErr } = await supabase.from('votos').select('id_voto, id_juez').eq('id_encuesta', poll.id_encuesta);
+            if (vErr) { setError(`Error al cargar los registros de votos: ${vErr.message}`); return; }
+
+            const { data: allVoteResponses, error: vrErr } = await supabase.from('votos_respuestas').select('id_voto, id_pregunta, valor_puntuacion').eq('id_encuesta', poll.id_encuesta);
+            if (vrErr) { setError(`Error al cargar las respuestas de los votos: ${vrErr.message}`); return; }
+
             const assignedJudges = judges?.map(j => j.jueces).flat().filter(Boolean) as Judge[] || [];
             setJudgeNames(Array.from(new Set(assignedJudges.map(j => j.nombre_completo))));
 
-            const results: ProjectResult[] = projects!.map(p => {
-                const projectVotes = votes?.filter(v => v.id_pregunta === p.id_pregunta) || [];
-                
-                const judgeVotes = projectVotes.filter(v => v.id_juez !== null && v.id_alumno === null);
-                
-                const publicVotes = projectVotes.filter(v => v.id_alumno !== null || (v.id_juez !== null && !assignedJudges.some(j => j.id_juez === v.id_juez)));
-                
-                setTotalVotes(publicVotes.length);
+            // Separar los registros de voto de jueces y del público
+            const publicVoteRecords = allVotes.filter(v => v.id_juez === null);
+            const judgeVoteRecords = allVotes.filter(v => v.id_juez !== null);
+            setTotalVotes(publicVoteRecords.length);
 
-                const judgeScores = assignedJudges.map(judge => {
-                    const vote = judgeVotes.find(v => v.id_juez === judge.id_juez);
-                    return { name: judge.nombre_completo, score: vote ? vote.valor_puntuacion : null, imageUrl: judge.url_imagen };
-                });
+            const results: ProjectResult[] = projects!.map(p => {
+                // Filtrar las respuestas que corresponden a este proyecto
+                const projectVoteResponses = allVoteResponses.filter(vr => vr.id_pregunta === p.id_pregunta);
+
+                // Calcular puntuación del público
+                const publicVoteIds = new Set(publicVoteRecords.map(v => v.id_voto));
+                const publicScores = projectVoteResponses
+                    .filter(vr => publicVoteIds.has(vr.id_voto))
+                    .map(vr => vr.valor_puntuacion || 0);
                 
-                const publicSum = publicVotes.reduce((acc, v) => acc + (v.valor_puntuacion || 0), 0);
-                const publicScore = publicVotes.length > 0 ? (publicSum / publicVotes.length) : 0;
+                const publicSum = publicScores.reduce((acc, score) => acc + score, 0);
+                const publicScore = publicScores.length > 0 ? (publicSum / publicScores.length) : 0;
+                
+                // Calcular puntuación de cada juez
+                const judgeScores = assignedJudges.map(judge => {
+                    const judgeVoteRecord = judgeVoteRecords.find(v => v.id_juez === judge.id_juez);
+                    if (!judgeVoteRecord) {
+                        return { name: judge.nombre_completo, score: null, imageUrl: judge.url_imagen };
+                    }
+                    const voteResponse = projectVoteResponses.find(vr => vr.id_voto === judgeVoteRecord.id_voto);
+                    return { name: judge.nombre_completo, score: voteResponse ? voteResponse.valor_puntuacion : null, imageUrl: judge.url_imagen };
+                });
                 
                 const totalJudgeScore = judgeScores.reduce((acc, j) => acc + (j.score || 0), 0);
                 const totalScore = totalJudgeScore + publicScore;
 
                 return { id: p.id_pregunta, name: p.texto_pregunta, imageUrl: p.url_imagen, judgeScores, publicScore, totalScore };
             });
+            // --- FIN DE LA LÓGICA CORREGIDA ---
+
             results.sort((a, b) => b.totalScore - a.totalScore);
             setData(results);
         };
@@ -293,7 +310,6 @@ export default function RealtimePollResultsPage() {
                     <div class="${styles.qrContainerModal}"><img src="${qrImageUrl}" alt="Código QR" style="width: 200px; height: 200px;" /></div>
                     <div class="${styles.shareInfo}">
                         <strong>Enlace:</strong><input type="text" value="${pollDetails.url_votacion}" readonly class="${styles.shareInput}" onclick="this.select()" />
-                        <strong>Código:</strong><input type="text" value="${pollDetails.codigo_acceso}" readonly class="${styles.shareInput}" onclick="this.select()" />
                     </div>
                     </div>`,
             showCloseButton: true, showConfirmButton: false, width: '400px',
@@ -366,7 +382,7 @@ export default function RealtimePollResultsPage() {
 
     return (
         <div className={isFullscreen ? styles.fullscreenContainer : styles.container}>
-            {showConfetti && <Confetti width={typeof window !== 'undefined' ? window.innerWidth : 0} height={typeof window !== 'undefined' ? window.innerHeight : 0} className={styles.confettiCanvas} />}
+            {/*{showConfetti && <Confetti width={typeof window !== 'undefined' ? window.innerWidth : 0} height={typeof window !== 'undefined' ? window.innerHeight : 0} className={styles.confettiCanvas} />} */}
             <div className={styles.header}>
                 {!isFullscreen && <button onClick={() => router.back()} className={styles.backButton}>←</button>}
                 <h1 className={styles.mainTitle}>{pollDetails.titulo}</h1>
@@ -394,14 +410,14 @@ export default function RealtimePollResultsPage() {
                     <div className={styles.projectsGrid}>
                         {(data as ProjectResult[]).map((p, index) => (
                             <div key={p.id} className={styles.projectCard}>
-                                <div className={styles.projectRank}>{index === 0 ? <Crown size={32} /> : `#${index + 1}`}</div>
+                                <div className={styles.projectRank}>#{index + 1}</div>
                                     <div className={styles.projectImageContainer}>
                                         {p.imageUrl && (
                                             <Image 
                                                 src={p.imageUrl} 
                                                 alt={p.name} 
-                                                fill={true} // <<< Usa fill
-                                                className={styles.projectImg} // className aún se usa para object-fit
+                                                fill={true}
+                                                className={styles.projectImg}
                                             />
                                         )}
                                     </div>                              <h3 className={styles.projectName}>{p.name}</h3>

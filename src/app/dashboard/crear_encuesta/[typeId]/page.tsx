@@ -240,7 +240,7 @@ export default function CreatePollFormPage() {
 
         } else if (isCandidates) {
             const code = `${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
-            const url = `${window.location.origin}/vote/${code}`;
+            const url = `${window.location.origin}/vote`;
 
             const { data: enc, error: encErr } = await supabase.from('encuestas').insert({
                 titulo: titulo.trim(),

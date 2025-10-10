@@ -481,14 +481,9 @@ const handleShowResults = () => {
           <button onClick={handleDelete} className={styles.deleteButton}>
             Eliminar
           </button>
-          <button onClick={() => router.push(`/dashboard/realtime/${pollId}`)} className={styles.realtimeButton} disabled={poll.estado !== 'activa'}>
+          <button onClick={() => router.push(`/dashboard/realtime/${pollId}`)} className={styles.realtimeButton}>
             Votación
           </button>
-          {poll.estado === 'finalizada' && (
-              <button onClick={handleShowResults} className={styles.shareResultsButton}>
-              Compartir Resultados
-              </button>
-          )}
         </div>
         <div className={styles.qrContainer}>
           <div className={styles.qrCodeWrapper}>
