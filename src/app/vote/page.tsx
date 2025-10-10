@@ -1,5 +1,4 @@
-// jquiej/votaciones_umg/Votaciones_umg-b0a40dd2f8bc8332dc629b90e97142518ff273e8/src/app/vote/page.tsx
-
+// src/app/vote/page.tsx
 'use client'
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react'
@@ -9,19 +8,21 @@ import styles from './page.module.css'
 import Swal from 'sweetalert2'
 import { LogIn, User, Image as ImageIcon } from 'lucide-react'
 import Image from 'next/image'
+import FingerprintJS from '@fingerprintjs/fingerprintjs'
 
 // --- Interfaces ---
-interface Student {
-  id_alumno: number;
-  carne: string;
-  nombre_completo: string;
-}
 interface Judge {
     id_juez: number;
     nombre_completo: string;
     codigo_unico: string;
 }
-type LoggedInUser = Student | Judge;
+
+interface PublicUser {
+    visitorId: string;
+    nombre_completo: string;
+}
+
+type LoggedInUser = Judge | PublicUser;
 
 interface Poll {
   id_encuesta: number;
@@ -36,7 +37,7 @@ interface Poll {
 }
 
 function LoadingFallback() {
-    return <div className={styles.info}>Cargando portal...</div>;
+    return <div className={styles.info}>Cargando portal de votación...</div>;
 }
 
 export default function VotePage() {
@@ -47,50 +48,17 @@ export default function VotePage() {
     )
 }
 
-function UniversalVoteEntryPage() { 
+function UniversalVoteEntryPage() {
   const [accessKey, setAccessKey] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true);
   const router = useRouter()
+  const searchParams = useSearchParams();
 
   const [loggedInUser, setLoggedInUser] = useState<LoggedInUser | null>(null);
   const [assignedPolls, setAssignedPolls] = useState<Poll[]>([]);
   const [publicPolls, setPublicPolls] = useState<Poll[]>([]);
   const [inactivePolls, setInactivePolls] = useState<Poll[]>([]);
-  const searchParams = useSearchParams();
-  const codeFromURL = searchParams.get('code'); 
-
-  const performLogin = useCallback(async (loginKey: string, redirectCode: string | null = null) => {
-    setLoading(true);
-    setError(null);
-    let userToLogin: LoggedInUser | null = null;
-    try {
-        const { data: judgeByCode } = await supabase.from('jueces').select('*').eq('codigo_unico', loginKey).single();
-        if (judgeByCode) {
-            userToLogin = judgeByCode;
-        } else {
-            const { data: student } = await supabase.from('alumnos').select('*').eq('carne', loginKey).single();
-            if (student) userToLogin = student;
-        }
-        
-        if (userToLogin) {
-            localStorage.setItem('currentUser', JSON.stringify(userToLogin));
-            setLoggedInUser(userToLogin);
-            
-            if (redirectCode) {
-                sessionStorage.setItem('votingUser', JSON.stringify(userToLogin));
-                router.replace(`/vote/${redirectCode}`);
-            } else {
-                router.replace('/vote');
-            }
-        } else {
-            throw new Error('Credenciales no encontradas. Verifica tus datos.');
-        }
-    } catch (err: any) {
-        setError(err.message);
-        setLoading(false); // Asegúrate de detener la carga en caso de error
-    }
-  }, [router]);
 
   const fetchPolls = useCallback(async (user: LoggedInUser) => {
     setLoading(true);
@@ -98,17 +66,24 @@ function UniversalVoteEntryPage() {
     try {
       const { data: allPolls, error: pollsError } = await supabase
         .from('encuestas')
-        .select('id_encuesta, titulo, descripcion, estado, codigo_acceso, preguntas_encuesta(url_imagen,texto_pregunta)')
-        .eq('id_tipo_votacion', 4); 
+        .select('id_encuesta, titulo, descripcion, estado, codigo_acceso, preguntas_encuesta(url_imagen,texto_pregunta)');
 
       if (pollsError) throw pollsError;
 
-      const userColumn = 'id_alumno' in user ? 'id_alumno' : 'id_juez';
-      const userId = 'id_alumno' in user ? user.id_alumno : user.id_juez;
-
-      const { data: userVotes, error: votesError } = await supabase.from('votos_respuestas').select('id_encuesta').eq(userColumn, userId);
+      let userVotesQuery;
+      if ('id_juez' in user) {
+        userVotesQuery = supabase.from('votos').select('id_encuesta').eq('id_juez', user.id_juez);
+      } else { // Es un PublicUser
+        userVotesQuery = supabase.from('votos').select('id_encuesta').eq('huella_dispositivo', user.visitorId);
+      }
+      const { data: userVotes, error: votesError } = await userVotesQuery;
       if (votesError) throw votesError;
+
       const votedPollIds = new Set(userVotes?.map(v => v.id_encuesta) || []);
+      
+      const assigned: Poll[] = [];
+      const publicView: Poll[] = [];
+      const inactive: Poll[] = [];
 
       let assignmentMap = new Map<number, string>();
       if ('id_juez' in user) {
@@ -118,18 +93,10 @@ function UniversalVoteEntryPage() {
         }
       }
 
-      const assigned: Poll[] = [];
-      const publicView: Poll[] = [];
-      const inactive: Poll[] = [];
-
       allPolls.forEach(poll => {
         const pollData: Poll = {
             ...poll,
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore // O // @ts-expect-error, ya no importa cuál uses aquí
             url_imagen: poll.preguntas_encuesta[0]?.url_imagen || null,
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore // O // @ts-expect-error
             texto_pregunta: poll.preguntas_encuesta[0]?.texto_pregunta || null,
             hasVoted: votedPollIds.has(poll.id_encuesta),
         };
@@ -155,58 +122,48 @@ function UniversalVoteEntryPage() {
 
   useEffect(() => {
     const initialize = async () => {
-        const storedUser = localStorage.getItem('currentUser');
-        const user = storedUser ? JSON.parse(storedUser) : null;
+      const code = searchParams.get('code');
+      const storedUserStr = localStorage.getItem('currentUser');
 
-        // --- INICIO DE LA LÓGICA CORREGIDA ---
-
-        // CASO 1: Hay un usuario logueado Y hay un código de encuesta en la URL
-        if (user && codeFromURL) {
-            // Verificamos si es un juez intentando loguearse con su propio código (para evitar bucles)
-            const isJudgeAutoLogin = 'codigo_unico' in user && user.codigo_unico === codeFromURL;
-            if (!isJudgeAutoLogin) {
-                sessionStorage.setItem('votingUser', JSON.stringify(user));
-                router.replace(`/vote/${codeFromURL}`);
-                return; // Importante: Salimos para evitar cargar el panel
-            }
+      // CASO 1: Hay un código en la URL. Usamos esto para autenticar y sobreescribir localStorage.
+      if (code) {
+        const { data: judge } = await supabase.from('jueces').select('*').eq('codigo_unico', code).single();
+        
+        let userToLogin: LoggedInUser;
+        if (judge) { // Es un juez
+          userToLogin = judge;
+        } else { // Es un enlace público, usamos huella digital
+          const fp = await FingerprintJS.load();
+          const result = await fp.get();
+          userToLogin = { visitorId: result.visitorId, nombre_completo: 'Público' };
         }
         
-        // CASO 2: Hay un usuario logueado, pero NO hay código en la URL
-        if (user) {
-            setLoggedInUser(user);
-            // El segundo useEffect se encargará de llamar a fetchPolls
-            return;
-        }
+        localStorage.setItem('currentUser', JSON.stringify(userToLogin));
+        setLoggedInUser(userToLogin);
+        router.replace('/vote'); // Limpiamos la URL
+        return;
+      }
 
-        // CASO 3: NO hay usuario logueado, pero SÍ hay un código en la URL
-        if (!user && codeFromURL) {
-            const { data: judge } = await supabase
-                .from('jueces')
-                .select('id_juez')
-                .eq('codigo_unico', codeFromURL)
-                .maybeSingle();
+      // CASO 2: No hay código en la URL, revisamos si hay un usuario guardado.
+      if (storedUserStr) {
+        setLoggedInUser(JSON.parse(storedUserStr));
+        return;
+      }
 
-            if (judge) {
-                // El código es de un juez -> auto-login
-                await performLogin(codeFromURL);
-            } else {
-                // El código es de una encuesta -> mostrar formulario
-                setAccessKey(codeFromURL);
-                setLoading(false);
-            }
-            return;
-        }
-
-        // CASO 4: No hay usuario ni código en la URL
-        setLoading(false);
-        // --- FIN DE LA LÓGICA CORREGIDA ---
+      // CASO 3: No hay código ni usuario guardado. Es un nuevo visitante público.
+      const fp = await FingerprintJS.load();
+      const result = await fp.get();
+      const publicUser: PublicUser = { visitorId: result.visitorId, nombre_completo: 'Público' };
+      localStorage.setItem('currentUser', JSON.stringify(publicUser));
+      setLoggedInUser(publicUser);
     };
+
     initialize();
-  }, [codeFromURL, performLogin, router]);
-  
-  // Efecto separado para cargar datos solo cuando el usuario está logueado y no hay redirección
+  }, [router, searchParams]);
+
+  // Efecto separado para cargar las encuestas una vez que tenemos un usuario.
   useEffect(() => {
-    if (loggedInUser && !codeFromURL) {
+    if (loggedInUser) {
         fetchPolls(loggedInUser);
 
         const channel = supabase.channel(`polls-for-user-${loggedInUser.nombre_completo}`)
@@ -216,33 +173,42 @@ function UniversalVoteEntryPage() {
           
         return () => { supabase.removeChannel(channel); };
     }
-  }, [loggedInUser, codeFromURL, fetchPolls]);
+  }, [loggedInUser, fetchPolls]);
 
-
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleJudgeFormLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     const trimmedInput = accessKey.trim();
     if (!trimmedInput) {
-      setError('Por favor, ingresa tus credenciales.');
+      setError('Por favor, ingresa tu código único de juez.');
       return;
     }
-    await performLogin(trimmedInput, codeFromURL); 
+    
+    setLoading(true);
+    const { data: judge } = await supabase.from('jueces').select('*').eq('codigo_unico', trimmedInput).single();
+    if (judge) {
+        localStorage.setItem('currentUser', JSON.stringify(judge));
+        setLoggedInUser(judge);
+    } else {
+        setError('Código de Juez no encontrado.');
+    }
+    setLoading(false);
   };
 
   const handleLogout = () => {
     localStorage.removeItem('currentUser');
+    sessionStorage.removeItem('votingUser');
     setLoggedInUser(null);
     setAssignedPolls([]);
     setPublicPolls([]);
     setInactivePolls([]);
-    sessionStorage.removeItem('votingUser'); 
-    router.replace('/vote');
+    window.location.href = '/vote'; // Forzar recarga para nueva huella
   };
 
   const handleVoteClick = (poll: Poll, isJudgeVote: boolean) => {
     if (!loggedInUser) return;
     if (poll.hasVoted) {
-      Swal.fire({ icon: 'info', title: 'Ya has votado', text: 'Solo puedes votar una vez por encuesta.' });
+      Swal.fire({ icon: 'info', title: 'Ya has votado', text: 'Solo puedes votar una vez por esta encuesta.' });
       return;
     }
     sessionStorage.setItem('votingUser', JSON.stringify(loggedInUser));
@@ -255,12 +221,14 @@ function UniversalVoteEntryPage() {
     }
 
     router.push(`/vote/${accessCode}`);
-};
+  };
 
-  if (loading) return <p className={styles.info}>Cargando...</p>;
+  if (loading || !loggedInUser) {
+    return <p className={styles.info}>Cargando portal...</p>;
+  }
 
-  if (loggedInUser) {
-    return (
+  // ---- RENDERIZADO DEL PORTAL DE VOTACIÓN -----
+  return (
       <div className={styles.container}>
         <div className={styles.welcomeHeader}>
           <div className={styles.welcomeUser}>
@@ -291,7 +259,7 @@ function UniversalVoteEntryPage() {
           </div>
         )}
         <div className={styles.pollList}>
-            <h2 className={styles.listTitle}>Encuestas Abiertas al Público</h2>
+            <h2 className={styles.listTitle}>Encuestas Abiertas</h2>
             {publicPolls.length > 0 ? (
                 publicPolls.map(poll => (
                       <div key={poll.id_encuesta} className={styles.pollItem}>
@@ -302,7 +270,7 @@ function UniversalVoteEntryPage() {
                             {poll.descripcion && <p className={styles.pollDescription}>{poll.descripcion}</p>}
                         </div>
                         <button onClick={() => handleVoteClick(poll, false)} className={poll.hasVoted ? styles.votedButton : styles.voteButton} disabled={poll.hasVoted}>
-                            {poll.hasVoted ? 'Ya Votaste' : 'Votar como Público'}
+                            {poll.hasVoted ? 'Ya Votaste' : 'Votar'}
                         </button>
                       </div>
                 ))
@@ -327,28 +295,5 @@ function UniversalVoteEntryPage() {
               )}
           </div>
       </div>
-    );
-  }
-
-  return (
-    <div className={styles.container}>
-      <div className={styles.loginCard}>
-        <h1 className={styles.title}>Portal de Votación</h1>
-        <form onSubmit={handleLogin} className={styles.form}>
-          <p>Ingresa tu carné de estudiante o tu código único de juez.</p>
-          <input
-            type="text"
-            //value={accessKey}
-            onChange={e => { setAccessKey(e.target.value); setError(null); }}
-            placeholder="Carné o Código de Juez"
-            className={styles.input}
-          />
-          {error && <p className={styles.error}>{error}</p>}
-          <button type="submit" className={styles.button} disabled={loading}>
-            <LogIn size={18}/> {loading ? 'Verificando...' : 'Ingresar'}
-          </button>
-        </form>
-      </div>
-    </div>
-  )
+  );
 }
